@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#15382b" />
+    <title>Admin workspace · BrannEco</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="assets/css/admin.css" />
+    <link rel="stylesheet" href="assets/css/admin-layout.css" />
+    <script src="assets/js/admin.js" defer></script>
+  </head>
+  <body class="admin-page">
+    <main id="loginView" class="login-shell">
+      <section class="login-card" aria-labelledby="loginTitle">
+        <a class="admin-brand" href="index.html"><span class="brand-mark">B</span><span>brann<span class="brand-soft">eco</span><small>ADMIN WORKSPACE</small></span></a>
+        <div class="login-art" aria-hidden="true"><span class="art-leaf">✳</span><span class="art-caption">Growing a<br />greener business.</span></div>
+        <div class="login-content">
+          <p class="eyebrow">ADMINISTRATOR SIGN IN</p>
+          <h1 id="loginTitle">Welcome back.</h1>
+          <p class="muted">Sign in with your administrator email and site password.</p>
+          <form id="loginForm" class="stack-form">
+            <label for="loginEmail">Admin email</label>
+            <input id="loginEmail" name="email" type="email" placeholder="you@example.com" autocomplete="username" required />
+            <label for="loginPassword">Password</label>
+            <input id="loginPassword" name="password" type="password" placeholder="Your admin password" autocomplete="current-password" required minlength="12" />
+            <button class="button button-primary login-submit" type="submit">Sign in <span aria-hidden="true">→</span></button>
+            <p id="loginError" class="form-error" role="alert" hidden></p>
+          </form>
+          <p class="security-note"><span aria-hidden="true">⌑</span> Protected administrator access<br /><span class="security-subnote">Your Google account password is never requested.</span></p>
+        </div>
+      </section>
+    </main>
+
+    <div id="dashboardView" class="dashboard-shell" hidden>
+      <aside class="sidebar" id="sidebar">
+        <a class="admin-brand sidebar-brand" href="index.html"><span class="brand-mark">B</span><span>brann<span class="brand-soft">eco</span><small>ADMIN WORKSPACE</small></span></a>
+        <div class="workspace-label">WORKSPACE</div>
+        <nav class="side-nav" aria-label="Admin sections">
+          <button class="side-link active" type="button" data-view="overview"><span>◫</span> Overview</button>
+          <button class="side-link" type="button" data-view="products"><span>▦</span> Products <i id="navProductCount">0</i></button>
+          <button class="side-link" type="button" data-view="orders"><span>▤</span> Orders <i id="navOrderCount">0</i></button>
+          <button class="side-link" type="button" data-view="inquiries"><span>✉</span> Customer enquiries <i id="navInquiryCount">0</i></button>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="secure-chip"><span></span> Secure admin session</div>
+          <a class="store-link" href="index.html" target="_blank" rel="noopener">↗ &nbsp; View storefront</a>
+          <button class="signout-button" id="logoutButton" type="button">↪ &nbsp; Sign out</button>
+        </div>
+      </aside>
+
+      <main class="dashboard-main">
+        <header class="topbar">
+          <button id="menuToggle" class="mobile-menu" type="button" aria-label="Open menu">☰</button>
+          <div class="breadcrumbs">BrannEco <span>/</span> <strong id="pageBreadcrumb">Overview</strong></div>
+          <div class="topbar-right"><span class="live-indicator">●&nbsp; STORE ONLINE</span><div class="admin-avatar" id="adminAvatar">A</div><div class="admin-identity"><strong>Administrator</strong><span id="adminEmail">Signed in</span></div></div>
+        </header>
+
+        <section class="dashboard-content" id="view-overview">
+          <div class="page-heading"><div><p class="eyebrow">YOUR BUSINESS AT A GLANCE</p><h1>Good to have you here.</h1><p>Here’s what’s happening across your store today.</p></div><span class="today-pill" id="todayLabel"></span></div>
+          <div id="setupWarning" class="setup-warning" hidden>⚙ &nbsp; Email replies need SMTP configuration. Add SMTP settings to your private <strong>.env</strong> file to reply to customer enquiries.</div>
+          <div class="stats-grid">
+            <article class="stat-card"><div class="stat-top"><span class="stat-icon green">▦</span><span class="stat-trend">LIVE CATALOGUE</span></div><p>Products</p><strong id="statProducts">—</strong><small>Across all collections</small></article>
+            <article class="stat-card"><div class="stat-top"><span class="stat-icon amber">▤</span><span class="stat-trend">NEEDS ATTENTION</span></div><p>New orders</p><strong id="statOrders">—</strong><small>Ready for your follow-up</small></article>
+            <article class="stat-card"><div class="stat-top"><span class="stat-icon violet">✉</span><span class="stat-trend">CUSTOMER CARE</span></div><p>Open enquiries</p><strong id="statInquiries">—</strong><small>Awaiting a reply</small></article>
+            <article class="stat-card"><div class="stat-top"><span class="stat-icon blue">₹</span><span class="stat-trend">THIS STORE</span></div><p>Order value</p><strong id="statValue">₹0</strong><small>Indicative new-order total</small></article>
+          </div>
+          <div class="overview-grid">
+            <section class="panel"><div class="panel-heading"><div><h2>Latest orders</h2><p>Recent customer requests</p></div><button class="text-button" data-jump="orders" type="button">All orders →</button></div><div id="recentOrders" class="compact-list"></div></section>
+            <section class="panel"><div class="panel-heading"><div><h2>Needs a reply</h2><p>Recent customer messages</p></div><button class="text-button" data-jump="inquiries" type="button">Open inbox →</button></div><div id="recentInquiries" class="compact-list"></div></section>
+          </div>
+          <section class="panel quick-panel"><div class="panel-heading"><div><h2>Quick actions</h2><p>Manage your catalogue and customers</p></div></div><div class="quick-actions"><button data-jump="products" type="button"><span>✎</span><strong>Update a product</strong><small>Prices and product photos</small></button><button data-jump="orders" type="button"><span>▤</span><strong>Review new orders</strong><small>See customer details and requests</small></button><button data-jump="inquiries" type="button"><span>✉</span><strong>Answer an enquiry</strong><small>Reply to customers by email</small></button></div></section>
+        </section>
+
+        <section class="dashboard-content" id="view-products" hidden>
+          <div class="page-heading"><div><p class="eyebrow">CATALOGUE MANAGEMENT</p><h1>Your products</h1><p>Edit the live catalogue prices and product photos.</p></div><span class="count-pill" id="productTotal">0 products</span></div>
+          <div class="toolbar"><label class="search-field"><span>⌕</span><input id="productSearch" type="search" placeholder="Search by name or SKU…" aria-label="Search products" /></label><label class="filter-select"><span>Collection</span><select id="productCategory"><option value="all">All collections</option></select></label></div>
+          <div class="table-panel"><div class="table-scroll"><table class="data-table product-table"><thead><tr><th>PRODUCT</th><th>SKU</th><th>DOMESTIC · INR</th><th>EXPORT · USD</th><th>PHOTO</th><th></th></tr></thead><tbody id="productsBody"></tbody></table></div><p class="table-empty" id="productsEmpty" hidden>No products match your search.</p></div>
+          <p class="page-footnote">Changes are saved to the live catalogue immediately. Existing customer orders retain the prices at the time they were placed.</p>
+        </section>
+
+        <section class="dashboard-content" id="view-orders" hidden>
+          <div class="page-heading"><div><p class="eyebrow">SALES &amp; CUSTOMER REQUESTS</p><h1>Orders</h1><p>Review quote requests submitted through your storefront.</p></div><span class="count-pill" id="orderTotal">0 orders</span></div>
+          <div class="toolbar"><label class="search-field"><span>⌕</span><input id="orderSearch" type="search" placeholder="Search customer or order…" aria-label="Search orders" /></label><label class="filter-select"><span>Status</span><select id="orderFilter"><option value="all">All orders</option><option value="new">New</option><option value="contacted">Contacted</option><option value="confirmed">Confirmed</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></label></div>
+          <div id="ordersList" class="record-list"></div><p class="empty-state" id="ordersEmpty" hidden>No orders here yet. Submitted customer orders will appear here.</p>
+        </section>
+
+        <section class="dashboard-content" id="view-inquiries" hidden>
+          <div class="page-heading"><div><p class="eyebrow">CUSTOMER CARE</p><h1>Customer enquiries</h1><p>Read new messages and send a personal email reply.</p></div><span class="count-pill" id="inquiryTotal">0 enquiries</span></div>
+          <div class="toolbar"><label class="search-field"><span>⌕</span><input id="inquirySearch" type="search" placeholder="Search name, email or message…" aria-label="Search enquiries" /></label><label class="filter-select"><span>Inbox</span><select id="inquiryFilter"><option value="all">All messages</option><option value="unread">Awaiting reply</option><option value="replied">Replied</option></select></label></div>
+          <div id="inquiriesList" class="record-list"></div><p class="empty-state" id="inquiriesEmpty" hidden>No enquiries yet. New website messages will arrive here.</p>
+        </section>
+        <footer class="admin-footer"><span>BrannEco · Admin workspace</span><span>Administrator access only</span></footer>
+      </main>
+    </div>
+    <div id="toast" class="admin-toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

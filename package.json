@@ -1,0 +1,26 @@
+{
+  "name": "branneco-storefront",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "admin:create": "node scripts/create-admin.mjs",
+    "check": "node --check server.mjs && node --check assets/js/admin.js && node --check assets/js/storefront-admin.js && node --check assets/js/cart.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "better-sqlite3": "^12.2.0",
+    "cheerio": "^1.1.2",
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.1.0",
+    "file-type": "^21.0.0",
+    "helmet": "^8.1.0",
+    "multer": "^2.0.2",
+    "nodemailer": "^10.0.11"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true
+  }
+}
