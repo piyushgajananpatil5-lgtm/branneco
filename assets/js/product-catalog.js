@@ -38,6 +38,9 @@
   };
 
   updateProductPrices(document.documentElement.dataset.currency || "INR");
+  document.addEventListener("branneco:catalogupdated", () => {
+    updateProductPrices(document.documentElement.dataset.currency || "INR");
+  });
 
   document.querySelectorAll(".catsec").forEach((section) => {
     const addButton = section.querySelector(".quick-add-btn");

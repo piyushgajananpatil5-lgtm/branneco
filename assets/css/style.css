@@ -1607,3 +1607,163 @@ footer a {
     flex: 1 1 100%;
   }
 }
+
+.order-submission-form {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.order-submission-form label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--green);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.order-submission-form input {
+  width: 100%;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.order-submission-status {
+  min-height: 1rem;
+  color: var(--green);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.order-submission-status.is-error {
+  color: #a33a2d;
+}
+
+.customer-help-trigger {
+  position: fixed;
+  z-index: 20;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  padding: 0.85rem 1.1rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--green);
+  box-shadow: 0 8px 24px rgba(27, 67, 50, 0.24);
+  color: #fff;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+
+.customer-help-trigger:hover {
+  background: #28583f;
+}
+
+.customer-help-panel {
+  position: fixed;
+  z-index: 21;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: calc(max(20px, env(safe-area-inset-bottom)) + 62px);
+  width: min(360px, calc(100vw - 32px));
+  padding: 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 16px 50px rgba(27, 67, 50, 0.2);
+}
+
+.customer-help-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.customer-help-head > div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.customer-help-head strong {
+  color: var(--green);
+  font-size: 1rem;
+}
+
+.customer-help-head span {
+  color: #69756c;
+  font-size: 0.78rem;
+}
+
+.customer-help-close {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--cream);
+  color: var(--green);
+  font-size: 1.25rem;
+}
+
+.customer-help-form,
+.customer-help-form label {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.customer-help-form {
+  gap: 0.8rem;
+}
+
+.customer-help-form label {
+  color: #34493a;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.customer-help-form input,
+.customer-help-form textarea {
+  width: 100%;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.customer-help-form textarea {
+  resize: vertical;
+}
+
+.customer-help-form > button {
+  padding: 0.75rem;
+  border: 0;
+  border-radius: 7px;
+  background: var(--green);
+  color: white;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 650;
+}
+
+.customer-help-form > button:disabled {
+  opacity: 0.65;
+}
+
+.customer-help-status {
+  margin: 0;
+  color: var(--green);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.customer-help-status.is-error {
+  color: #a33a2d;
+}

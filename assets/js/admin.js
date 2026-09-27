@@ -1,0 +1,227 @@
+(() => {
+  const $ = (selector, parent = document) => parent.querySelector(selector);
+  const loginView = $('#loginView');
+  const dashboardView = $('#dashboardView');
+  const loginForm = $('#loginForm');
+  let csrfToken = '';
+  let products = [];
+  let orders = [];
+  let inquiries = [];
+  let currentView = 'overview';
+  let toastTimeout;
+
+  const escapeHtml = (value = '') => String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+  const dateLabel = (date) => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(date));
+  const money = (amount, currency = 'INR') => new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(amount) || 0);
+  const statusName = (status) => ({ new: 'New', contacted: 'Contacted', confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled', unread: 'Awaiting reply', replied: 'Replied' })[status] || status;
+  const flash = (message, isError = false) => {
+    const toast = $('#toast');
+    toast.textContent = message;
+    toast.classList.toggle('is-error', isError);
+    toast.classList.add('visible');
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => toast.classList.remove('visible'), 3600);
+  };
+  async function request(url, options = {}) {
+    const headers = new Headers(options.headers || {});
+    if (options.body && !(options.body instanceof FormData)) headers.set('Content-Type', 'application/json');
+    if (options.method && options.method !== 'GET' && csrfToken) headers.set('X-CSRF-Token', csrfToken);
+    const response = await fetch(url, { ...options, headers, credentials: 'same-origin' });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      if (response.status === 401 && dashboardView && !dashboardView.hidden) showLogin();
+      throw new Error(data.error || `Request failed (${response.status}).`);
+    }
+    return data;
+  }
+  function showLogin() {
+    csrfToken = '';
+    dashboardView.hidden = true;
+    loginView.hidden = false;
+    $('#loginPassword').value = '';
+  }
+  function showDashboard(email) {
+    loginView.hidden = true;
+    dashboardView.hidden = false;
+    $('#adminEmail').textContent = email;
+    $('#adminAvatar').textContent = email.charAt(0).toUpperCase();
+    $('#todayLabel').textContent = new Intl.DateTimeFormat(undefined, { dateStyle: 'full' }).format(new Date());
+    switchView('overview');
+    refreshAll().catch((error) => flash(error.message, true));
+  }
+  async function startSession() {
+    const session = await request('/api/admin/session');
+    csrfToken = session.csrfToken;
+    showDashboard(session.email);
+  }
+  loginForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = $('.login-submit');
+    button.disabled = true;
+    $('#loginError').hidden = true;
+    try {
+      const form = new FormData(loginForm);
+      const result = await request('/api/admin/login', { method: 'POST', body: JSON.stringify({ email: form.get('email'), password: form.get('password') }) });
+      csrfToken = result.csrfToken;
+      loginForm.reset();
+      showDashboard(result.email);
+    } catch (error) {
+      $('#loginError').textContent = error.message;
+      $('#loginError').hidden = false;
+    } finally { button.disabled = false; }
+  });
+  $('#logoutButton').addEventListener('click', async () => {
+    try { await request('/api/admin/logout', { method: 'POST', body: '{}' }); } catch {}
+    showLogin();
+  });
+
+  function switchView(name) {
+    currentView = name;
+    document.querySelectorAll('.dashboard-content').forEach((section) => { section.hidden = section.id !== `view-${name}`; });
+    document.querySelectorAll('.side-link').forEach((button) => button.classList.toggle('active', button.dataset.view === name));
+    const labels = { overview: 'Overview', products: 'Products', orders: 'Orders', inquiries: 'Customer enquiries' };
+    $('#pageBreadcrumb').textContent = labels[name] || 'Overview';
+    $('#sidebar').classList.remove('mobile-open');
+    if (name === 'products') renderProducts();
+    if (name === 'orders') renderOrders();
+    if (name === 'inquiries') renderInquiries();
+  }
+  document.querySelectorAll('[data-view], [data-jump]').forEach((button) => button.addEventListener('click', () => switchView(button.dataset.view || button.dataset.jump)));
+  $('#menuToggle').addEventListener('click', () => $('#sidebar').classList.toggle('mobile-open'));
+
+  async function refreshAll() {
+    const [productData, orderData, inquiryData, health] = await Promise.all([
+      request('/api/admin/products'), request('/api/admin/orders'), request('/api/admin/inquiries'), request('/api/health'),
+    ]);
+    products = productData.products;
+    orders = orderData.orders;
+    inquiries = inquiryData.inquiries;
+    $('#setupWarning').hidden = health.smtpConfigured !== true;
+    $('#statProducts').textContent = products.length.toLocaleString();
+    const newOrders = orders.filter((order) => order.status === 'new');
+    const openInquiries = inquiries.filter((inquiry) => inquiry.status !== 'replied');
+    $('#statOrders').textContent = newOrders.length.toLocaleString();
+    $('#statInquiries').textContent = openInquiries.length.toLocaleString();
+    $('#statValue').textContent = money(newOrders.reduce((sum, order) => sum + order.subtotal, 0));
+    $('#navProductCount').textContent = String(products.length);
+    $('#navOrderCount').textContent = String(newOrders.length);
+    $('#navInquiryCount').textContent = String(openInquiries.length);
+    $('#productTotal').textContent = `${products.length} products`;
+    $('#orderTotal').textContent = `${orders.length} orders`;
+    $('#inquiryTotal').textContent = `${inquiries.length} enquiries`;
+    renderCategoryOptions();
+    renderRecent();
+    switchView(currentView);
+  }
+  function renderCategoryOptions() {
+    const select = $('#productCategory');
+    const current = select.value;
+    const categories = [...new Set(products.map((product) => product.page))].sort();
+    select.innerHTML = '<option value="all">All collections</option>' + categories.map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category.replaceAll('_', ' '))}</option>`).join('');
+    if ([...select.options].some((option) => option.value === current)) select.value = current;
+  }
+  function renderRecent() {
+    const latestOrders = orders.slice(0, 4);
+    $('#recentOrders').innerHTML = latestOrders.length ? latestOrders.map((order) => `<article class="compact-row"><span class="compact-icon green">▤</span><span class="compact-copy"><strong>${escapeHtml(order.name)} <small>${escapeHtml(order.reference)}</small></strong><span>${escapeHtml(order.items.length)} item${order.items.length === 1 ? '' : 's'} · ${escapeHtml(dateLabel(order.created_at))}</span></span><span class="status-badge status-${escapeHtml(order.status)}">${escapeHtml(statusName(order.status))}</span></article>`).join('') : '<p class="subtle-empty">New customer orders will appear here.</p>';
+    const latestMessages = inquiries.filter((item) => item.status !== 'replied').slice(0, 4);
+    $('#recentInquiries').innerHTML = latestMessages.length ? latestMessages.map((item) => `<article class="compact-row"><span class="compact-icon violet">✉</span><span class="compact-copy"><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.subject)} · ${escapeHtml(dateLabel(item.created_at))}</span></span><span class="status-badge status-unread">New</span></article>`).join('') : '<p class="subtle-empty">You’re all caught up. No messages need a reply.</p>';
+  }
+
+  function productMatches(product) {
+    const query = $('#productSearch').value.trim().toLowerCase();
+    const category = $('#productCategory').value;
+    return (category === 'all' || product.page === category) && (!query || `${product.name} ${product.sku} ${product.category}`.toLowerCase().includes(query));
+  }
+  function renderProducts() {
+    if (!products.length) return;
+    const visible = products.filter(productMatches);
+    $('#productsEmpty').hidden = visible.length > 0;
+    $('#productsBody').innerHTML = visible.map((product) => `<tr data-product-sku="${escapeHtml(product.sku)}"><td><div class="product-name">${escapeHtml(product.name)}</div><small class="product-category">${escapeHtml(product.page.replaceAll('_', ' '))}</small></td><td><span class="sku-tag">${escapeHtml(product.sku)}</span></td><td><input class="price-input" data-price="inr" aria-label="INR price for ${escapeHtml(product.sku)}" value="${escapeHtml(product.inr)}" maxlength="60" /></td><td><input class="price-input" data-price="usd" aria-label="USD price for ${escapeHtml(product.sku)}" value="${escapeHtml(product.usd)}" maxlength="60" /></td><td><label class="photo-picker" title="Upload a new product photo"><img src="${escapeHtml(product.image_url)}" alt="" loading="lazy" /><span>↥</span><input type="file" accept="image/jpeg,image/png,image/webp" data-photo="${escapeHtml(product.sku)}" aria-label="Upload photo for ${escapeHtml(product.sku)}" /></label></td><td><button class="button button-save" data-save="${escapeHtml(product.sku)}" type="button">Save</button></td></tr>`).join('');
+  }
+  $('#productSearch').addEventListener('input', renderProducts);
+  $('#productCategory').addEventListener('change', renderProducts);
+  $('#productsBody').addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-save]');
+    if (!button) return;
+    const row = button.closest('tr');
+    button.disabled = true;
+    try {
+      const result = await request(`/api/admin/products/${encodeURIComponent(button.dataset.save)}`, { method: 'PATCH', body: JSON.stringify({ inr: $('[data-price="inr"]', row).value, usd: $('[data-price="usd"]', row).value }) });
+      Object.assign(products.find((product) => product.sku === button.dataset.save), result.product);
+      flash(`${button.dataset.save} saved. The storefront is updated.`);
+      button.textContent = 'Saved ✓';
+      setTimeout(() => { if (button.isConnected) button.textContent = 'Save'; }, 1600);
+    } catch (error) { flash(error.message, true); }
+    finally { button.disabled = false; }
+  });
+  $('#productsBody').addEventListener('change', async (event) => {
+    const input = event.target.closest('[data-photo]');
+    const file = input?.files?.[0];
+    if (!file) return;
+    const row = input.closest('tr');
+    const image = $('.photo-picker img', row);
+    const previous = image.src;
+    image.src = URL.createObjectURL(file);
+    try {
+      const form = new FormData(); form.append('image', file);
+      const uploaded = await request('/api/admin/upload', { method: 'POST', body: form });
+      const result = await request(`/api/admin/products/${encodeURIComponent(input.dataset.photo)}`, { method: 'PATCH', body: JSON.stringify({ image_url: uploaded.image_url }) });
+      Object.assign(products.find((product) => product.sku === input.dataset.photo), result.product);
+      image.src = uploaded.image_url;
+      flash(`Photo updated for ${input.dataset.photo}.`);
+    } catch (error) { image.src = previous; flash(error.message, true); }
+    finally { input.value = ''; }
+  });
+
+  function renderOrders() {
+    const query = $('#orderSearch').value.trim().toLowerCase();
+    const filter = $('#orderFilter').value;
+    const visible = orders.filter((order) => (filter === 'all' || order.status === filter) && (!query || `${order.name} ${order.email} ${order.reference} ${order.phone}`.toLowerCase().includes(query)));
+    $('#ordersEmpty').hidden = visible.length > 0;
+    $('#ordersList').innerHTML = visible.map((order) => `<article class="record-card"><div class="record-top"><div><span class="order-reference">${escapeHtml(order.reference)}</span><span class="status-badge status-${escapeHtml(order.status)}">${escapeHtml(statusName(order.status))}</span><h2>${escapeHtml(order.name)}</h2><p class="record-contact"><a href="mailto:${escapeHtml(order.email)}">${escapeHtml(order.email)}</a> · <a href="tel:${escapeHtml(order.phone)}">${escapeHtml(order.phone)}</a></p></div><time>${escapeHtml(dateLabel(order.created_at))}</time></div><div class="order-items">${order.items.map((item) => `<div><span><strong>${escapeHtml(item.sku)}</strong> ${escapeHtml(item.name)} × ${escapeHtml(item.quantity)}</span><span>${escapeHtml(item.inr)} INR · ${escapeHtml(item.usd)} USD</span></div>`).join('')}</div><div class="record-bottom"><strong>Indicative total · ${escapeHtml(order.currency)} ${order.currency === 'INR' ? money(order.subtotal).replace('₹', '').trim() : money(order.subtotal, order.currency).replace(/[A-Z]{3}/g, '').trim()}</strong><div class="record-actions"><select data-order-status="${order.id}" aria-label="Order status"><option value="new" ${order.status === 'new' ? 'selected' : ''}>New</option><option value="contacted" ${order.status === 'contacted' ? 'selected' : ''}>Contacted</option><option value="confirmed" ${order.status === 'confirmed' ? 'selected' : ''}>Confirmed</option><option value="completed" ${order.status === 'completed' ? 'selected' : ''}>Completed</option><option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelled</option></select><button class="button button-outline" data-order-email="${order.id}" type="button">Email customer</button></div></div></article>`).join('');
+  }
+  $('#orderSearch').addEventListener('input', renderOrders);
+  $('#orderFilter').addEventListener('change', renderOrders);
+  $('#ordersList').addEventListener('change', async (event) => {
+    const select = event.target.closest('[data-order-status]');
+    if (!select) return;
+    try { await request(`/api/admin/orders/${select.dataset.orderStatus}`, { method: 'PATCH', body: JSON.stringify({ status: select.value }) }); const order = orders.find((item) => String(item.id) === select.dataset.orderStatus); order.status = select.value; flash('Order status updated.'); refreshAll(); }
+    catch (error) { flash(error.message, true); }
+  });
+  $('#ordersList').addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-order-email]');
+    if (!button) return;
+    const order = orders.find((item) => String(item.id) === button.dataset.orderEmail);
+    const message = window.prompt(`Write an email to ${order.name}:`, `Hello ${order.name},\n\nThank you for your order ${order.reference}. We will be in touch shortly.\n\nBrannEco`);
+    if (!message?.trim()) return;
+    try { await request(`/api/admin/orders/${order.id}`, { method: 'PATCH', body: JSON.stringify({ status: order.status, emailCustomer: true, message }) }); flash(`Email sent to ${order.email}.`); }
+    catch (error) { flash(error.message, true); }
+  });
+
+  function renderInquiries() {
+    const query = $('#inquirySearch').value.trim().toLowerCase();
+    const filter = $('#inquiryFilter').value;
+    const visible = inquiries.filter((item) => (filter === 'all' || item.status === filter) && (!query || `${item.name} ${item.email} ${item.subject} ${item.message}`.toLowerCase().includes(query)));
+    $('#inquiriesEmpty').hidden = visible.length > 0;
+    $('#inquiriesList').innerHTML = visible.map((item) => `<article class="record-card inquiry-card"><div class="record-top"><div><span class="status-badge status-${escapeHtml(item.status)}">${escapeHtml(statusName(item.status))}</span><h2>${escapeHtml(item.subject)}</h2><p class="record-contact">From <strong>${escapeHtml(item.name)}</strong> · <a href="mailto:${escapeHtml(item.email)}">${escapeHtml(item.email)}</a></p></div><time>${escapeHtml(dateLabel(item.created_at))}</time></div><blockquote>${escapeHtml(item.message)}</blockquote>${item.reply ? `<div class="previous-reply"><strong>Your previous reply</strong><p>${escapeHtml(item.reply)}</p></div>` : ''}<form class="reply-form" data-reply-form="${item.id}"><label for="reply-${item.id}">Reply to ${escapeHtml(item.name)}</label><textarea id="reply-${item.id}" name="reply" rows="3" maxlength="5000" placeholder="Write a thoughtful reply…" required>${item.status === 'replied' ? escapeHtml(item.reply || '') : ''}</textarea><div class="reply-footer"><span>Sent to ${escapeHtml(item.email)} from your configured business email.</span><button class="button button-primary" type="submit">Send email reply <span aria-hidden="true">→</span></button></div></form></article>`).join('');
+  }
+  $('#inquirySearch').addEventListener('input', renderInquiries);
+  $('#inquiryFilter').addEventListener('change', renderInquiries);
+  $('#inquiriesList').addEventListener('submit', async (event) => {
+    const form = event.target.closest('[data-reply-form]');
+    if (!form) return;
+    event.preventDefault();
+    const button = $('button[type="submit"]', form);
+    button.disabled = true;
+    try {
+      await request(`/api/admin/inquiries/${form.dataset.replyForm}/reply`, { method: 'POST', body: JSON.stringify({ reply: new FormData(form).get('reply') }) });
+      flash('Your reply was emailed to the customer.');
+      const inquiry = inquiries.find((item) => String(item.id) === form.dataset.replyForm);
+      inquiry.reply = new FormData(form).get('reply'); inquiry.status = 'replied'; inquiry.replied_at = new Date().toISOString();
+      renderInquiries(); refreshAll();
+    } catch (error) { flash(error.message, true); }
+    finally { button.disabled = false; }
+  });
+
+  startSession().catch(() => showLogin());
+})();

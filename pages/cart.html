@@ -69,7 +69,13 @@
             <strong id="cartSubtotal">INR 0.00</strong>
           </div>
           <p class="cart-summary-note" id="cartSummaryNote">Shipping, taxes and final pricing are confirmed with your BrannEco quote.</p>
-          <a class="btn primary cart-quote" id="quoteButton" href="mailto:ritiknitw7697@gmail.com?subject=BrannEco%20Order%20Quote">Request order quote</a>
+          <form id="orderSubmissionForm" class="order-submission-form">
+            <label>Your name<input name="name" autocomplete="name" required minlength="2" maxlength="120" /></label>
+            <label>Email address<input name="email" type="email" autocomplete="email" required maxlength="254" /></label>
+            <label>Phone number<input name="phone" type="tel" autocomplete="tel" required minlength="7" maxlength="32" /></label>
+            <button class="btn primary cart-quote" id="quoteButton" type="submit">Request order quote</button>
+            <p id="orderSubmissionStatus" class="order-submission-status" aria-live="polite"></p>
+          </form>
         </aside>
       </div>
     </main>
@@ -80,5 +86,6 @@
     </footer>
 
     <script src="../assets/js/cart.js"></script>
+    <script src="../assets/js/storefront-admin.js"></script>
   </body>
 </html>

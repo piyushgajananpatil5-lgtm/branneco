@@ -226,6 +226,9 @@
         }
       });
     });
+    document.dispatchEvent(new CustomEvent("branneco:currencychange", {
+      detail: { currency: selectedCurrency },
+    }));
   };
 
   const formatPrice = (amount, currency) =>
@@ -353,6 +356,85 @@
       quoteButton.href = `mailto:ritiknitw7697@gmail.com?subject=${encodeURIComponent("BrannEco Order Quote")}&body=${encodeURIComponent(body)}`;
     }
   };
+
+  document.addEventListener("branneco:catalogupdated", (event) => {
+    const updatedProducts = event.detail?.products;
+    if (!(updatedProducts instanceof Map)) return;
+    updatedProducts.forEach((product) => {
+      document.querySelectorAll(".catsec table[data-inr-index]").forEach((table) => {
+        const row = Array.from(table.rows).slice(1).find(
+          (candidate) => candidate.cells[0]?.textContent.trim() === product.sku,
+        );
+        if (!row) return;
+        const inrIndex = Number(table.dataset.inrIndex);
+        const usdIndex = Number(table.dataset.usdIndex);
+        row.cells[inrIndex].dataset.basePrice = product.inr;
+        row.cells[usdIndex].dataset.basePrice = product.usd;
+        const addButton = row.querySelector(".addrow");
+        if (addButton) {
+          addButton.dataset.inr = parsePrice(product.inr) ?? "";
+          addButton.dataset.usd = parsePrice(product.usd) ?? "";
+          addButton.dataset.inrText = product.inr;
+          addButton.dataset.usdText = product.usd;
+        }
+      });
+      if (cart[product.sku]) {
+        cart[product.sku].inr = parsePrice(product.inr);
+        cart[product.sku].usd = parsePrice(product.usd);
+        cart[product.sku].inrText = product.inr;
+        cart[product.sku].usdText = product.usd;
+      }
+    });
+    applySelectedCurrency();
+    saveCart();
+  });
+
+  document.getElementById("orderSubmissionForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const submitButton = document.getElementById("quoteButton");
+    const status = document.getElementById("orderSubmissionStatus");
+    const customer = Object.fromEntries(new FormData(form));
+    const products = Object.values(cart);
+    if (!products.length) {
+      status.textContent = "Add at least one product before requesting a quote.";
+      status.classList.add("is-error");
+      return;
+    }
+    const orderLines = products.map((product) =>
+      `${product.sku} — ${product.description} × ${product.quantity} (${currencyLabels[selectedCurrency]} ${getPriceText(product)})`,
+    );
+    const emailBody = [
+      "Hi BrannEco,", "", "Please quote this order:", ...orderLines,
+      "", `Customer: ${customer.name}`, `Email: ${customer.email}`, `Phone: ${customer.phone}`,
+    ].join("\n");
+    const makeMailto = (body) => `mailto:ritiknitw7697@gmail.com?subject=${encodeURIComponent("BrannEco Order Quote")}&body=${encodeURIComponent(body)}`;
+    if (isLocalFile) {
+      window.location.href = makeMailto(emailBody);
+      return;
+    }
+    submitButton.disabled = true;
+    status.classList.remove("is-error");
+    status.textContent = "Securely saving your request…";
+    try {
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...customer,
+          currency: selectedCurrency,
+          items: products.map(({ sku, quantity }) => ({ sku, quantity })),
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not save your quote request.");
+      status.textContent = `Request ${result.reference} received. Opening your email app…`;
+      window.location.href = makeMailto(`${emailBody}\n\nReference: ${result.reference}`);
+    } catch (error) {
+      status.textContent = error.message || "Could not reach the store. Please try again.";
+      status.classList.add("is-error");
+    } finally { submitButton.disabled = false; }
+  });
 
   document.addEventListener("click", (event) => {
     if (!(event.target instanceof Element)) return;
