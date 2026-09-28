@@ -70,6 +70,7 @@ app.use(express.json({ limit: '32kb' }));
 app.use('/uploads', express.static(path.join(STORAGE_ROOT, 'uploads'), { dotfiles: 'deny', immutable: true, maxAge: '1d' }));
 app.use(['/data', '/node_modules', '/scripts', '/server.mjs', '/package.json', '/package-lock.json'], (_req, res) => res.sendStatus(404));
 app.use(express.static(ROOT, { dotfiles: 'deny', index: 'index.html', maxAge: process.env.NODE_ENV === 'production' ? '1h' : 0 }));
+app.get('/', (_req, res) => res.sendFile(path.join(ROOT, 'index.html')));
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 8, standardHeaders: 'draft-7', legacyHeaders: false, message: { error: 'Too many login attempts. Try again in 15 minutes.' } });
 const publicLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 60, standardHeaders: 'draft-7', legacyHeaders: false });
 const adminLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 180, standardHeaders: 'draft-7', legacyHeaders: false });

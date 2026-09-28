@@ -1,0 +1,14 @@
+{
+  "functions": {
+    "api/[...path].mjs": {
+      "includeFiles": [
+        "index.html",
+        "admin.html",
+        "assets/**",
+        "images/**",
+        "pages/**",
+        "BrannEco_Catalogue.pdf"
+      ]
+    }
+  }
+}
