@@ -16,9 +16,10 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
 const SESSION_MS = 12 * 60 * 60 * 1000;
-await mkdir(path.join(ROOT, 'data'), { recursive: true });
-await mkdir(path.join(ROOT, 'uploads'), { recursive: true });
-const db = new Database(path.join(ROOT, 'data', 'branneco.sqlite'));
+const STORAGE_ROOT = process.env.VERCEL === '1' ? '/tmp/branneco' : ROOT;
+await mkdir(path.join(STORAGE_ROOT, 'data'), { recursive: true });
+await mkdir(path.join(STORAGE_ROOT, 'uploads'), { recursive: true });
+const db = new Database(path.join(STORAGE_ROOT, 'data', 'branneco.sqlite'));
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 db.exec(`
@@ -66,7 +67,7 @@ app.disable('x-powered-by');
 app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : false);
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 app.use(express.json({ limit: '32kb' }));
-app.use('/uploads', express.static(path.join(ROOT, 'uploads'), { dotfiles: 'deny', immutable: true, maxAge: '1d' }));
+app.use('/uploads', express.static(path.join(STORAGE_ROOT, 'uploads'), { dotfiles: 'deny', immutable: true, maxAge: '1d' }));
 app.use(['/data', '/node_modules', '/scripts', '/server.mjs', '/package.json', '/package-lock.json'], (_req, res) => res.sendStatus(404));
 app.use(express.static(ROOT, { dotfiles: 'deny', index: 'index.html', maxAge: process.env.NODE_ENV === 'production' ? '1h' : 0 }));
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 8, standardHeaders: 'draft-7', legacyHeaders: false, message: { error: 'Too many login attempts. Try again in 15 minutes.' } });
@@ -161,7 +162,7 @@ app.post('/api/admin/upload', requireAdmin, requireCsrf, adminLimiter, upload.si
   if (!detected || !['image/jpeg', 'image/png', 'image/webp'].includes(detected.mime)) return res.status(400).json({ error: 'That file is not a valid JPG, PNG, or WebP image.' });
   const filename = `${randomUUID()}.${detected.ext}`;
   const { writeFile } = await import('node:fs/promises');
-  await writeFile(path.join(ROOT, 'uploads', filename), req.file.buffer, { flag: 'wx', mode: 0o644 });
+  await writeFile(path.join(STORAGE_ROOT, 'uploads', filename), req.file.buffer, { flag: 'wx', mode: 0o644 });
   res.json({ image_url: `/uploads/${filename}` });
 });
 
@@ -256,4 +257,9 @@ app.use((error, _req, res, _next) => {
   if (error instanceof multer.MulterError) return res.status(400).json({ error: error.code === 'LIMIT_FILE_SIZE' ? 'Images must be smaller than 5 MB.' : 'Choose one valid image.' });
   return res.status(500).json({ error: 'Something went wrong. Check the server log for details.' });
 });
-app.listen(PORT, () => console.log(`BrannEco is ready at http://localhost:${PORT}${configuredAdmin() ? '' : ' — run npm run admin:create to configure the admin login'}`));
+
+export default app;
+
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, () => console.log(`BrannEco is ready at http://localhost:${PORT}${configuredAdmin() ? '' : ' — run npm run admin:create to configure the admin login'}`));
+}
