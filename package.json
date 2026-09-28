@@ -10,17 +10,14 @@
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
-    "better-sqlite3": "^12.2.0",
     "cheerio": "^1.1.2",
     "dotenv": "^16.6.1",
     "express": "^5.1.0",
     "express-rate-limit": "^8.1.0",
     "file-type": "^21.0.0",
     "helmet": "^8.1.0",
+    "mongodb": "^7.6.0",
     "multer": "^2.0.2",
     "nodemailer": "^10.0.11"
-  },
-  "allowScripts": {
-    "better-sqlite3@12.11.1": true
   }
 }
