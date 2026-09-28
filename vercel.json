@@ -10,5 +10,11 @@
         "BrannEco_Catalogue.pdf"
       ]
     }
-  }
+  },
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/api/[...path].mjs"
+    }
+  ]
 }
