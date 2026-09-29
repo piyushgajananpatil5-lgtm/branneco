@@ -979,7 +979,7 @@ footer a {
 
 .cart-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
   align-items: start;
   gap: 1.5rem;
 }
@@ -1115,6 +1115,24 @@ footer a {
   color: var(--green);
   font-size: 0.82rem;
   font-weight: 700;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.cart-contact-links {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.cart-contact-links a {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .cart-quote {
