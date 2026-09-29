@@ -68,21 +68,34 @@
             <span id="cartSubtotalLabel">INR subtotal</span>
             <strong id="cartSubtotal">INR 0.00</strong>
           </div>
+          <p class="cart-moq">Minimum order: 500 units per product.</p>
           <p class="cart-summary-note" id="cartSummaryNote">Shipping, taxes and final pricing are confirmed with your BrannEco quote.</p>
-          <form id="orderSubmissionForm" class="order-submission-form">
-            <label>Your name<input name="name" autocomplete="name" required minlength="2" maxlength="120" /></label>
-            <label>Email address<input name="email" type="email" autocomplete="email" required maxlength="254" /></label>
-            <label>Phone number<input name="phone" type="tel" autocomplete="tel" required minlength="7" maxlength="32" /></label>
-            <button class="btn primary cart-quote" id="quoteButton" type="submit">Request order quote</button>
-            <p id="orderSubmissionStatus" class="order-submission-status" aria-live="polite"></p>
-          </form>
+          <p class="cart-summary-note">Questions? <a href="mailto:admin@branneco.shop">admin@branneco.shop</a> · <a href="https://branneco.shop">branneco.shop</a></p>
         </aside>
+        <form id="orderSubmissionForm" class="order-submission-form">
+          <h3 class="checkout-form-title">Billing &amp; shipping details</h3>
+          <div class="checkout-fields">
+            <label>First name *<input name="firstName" autocomplete="given-name" required minlength="1" maxlength="60" /></label>
+            <label>Last name *<input name="lastName" autocomplete="family-name" required minlength="1" maxlength="60" /></label>
+            <label class="checkout-field-wide">Company *<span class="checkout-hint">Enter your company name for business orders.</span><input name="company" autocomplete="organization" required minlength="2" maxlength="160" /></label>
+            <label>Country / region *<select name="country" autocomplete="country-name" required><option value="India" selected>India</option><option value="United States">United States</option><option value="United Kingdom">United Kingdom</option><option value="United Arab Emirates">United Arab Emirates</option><option value="Other">Other</option></select></label>
+            <label class="checkout-field-wide">Street address *<input name="address1" autocomplete="address-line1" required minlength="4" maxlength="200" placeholder="House number and street name" /><input name="address2" autocomplete="address-line2" maxlength="200" placeholder="Landmark or apartment (optional)" /></label>
+            <label>Town / city *<input name="city" autocomplete="address-level2" required minlength="2" maxlength="100" /></label>
+            <label>State / county *<select name="state" autocomplete="address-level1" required><option value="" selected disabled>Select a state or region</option><option>Andhra Pradesh</option><option>Arunachal Pradesh</option><option>Assam</option><option>Bihar</option><option>Chhattisgarh</option><option>Goa</option><option>Gujarat</option><option>Haryana</option><option>Himachal Pradesh</option><option>Jharkhand</option><option>Karnataka</option><option>Kerala</option><option>Madhya Pradesh</option><option>Maharashtra</option><option>Manipur</option><option>Meghalaya</option><option>Mizoram</option><option>Nagaland</option><option>Odisha</option><option>Punjab</option><option>Rajasthan</option><option>Sikkim</option><option>Tamil Nadu</option><option>Telangana</option><option>Tripura</option><option>Uttar Pradesh</option><option>Uttarakhand</option><option>West Bengal</option><option>Andaman and Nicobar Islands</option><option>Chandigarh</option><option>Dadra and Nagar Haveli and Daman and Diu</option><option>Delhi</option><option>Jammu and Kashmir</option><option>Ladakh</option><option>Lakshadweep</option><option>Puducherry</option><option>Other / outside India</option></select></label>
+            <label>Pincode / ZIP *<input name="postalCode" autocomplete="postal-code" required minlength="3" maxlength="20" /></label>
+            <label>Phone *<input name="phone" type="tel" autocomplete="tel" required minlength="7" maxlength="32" /></label>
+            <label class="checkout-field-wide">Email address *<input name="email" type="email" autocomplete="email" required maxlength="254" /></label>
+            <label class="checkout-field-wide">GST number <span class="checkout-hint">Optional</span><input name="gstNumber" maxlength="30" placeholder="E.g. 22AAAAA0000A1Z5" /></label>
+          </div>
+          <button class="btn primary cart-quote" id="quoteButton" type="submit">Request order quote</button>
+          <p id="orderSubmissionStatus" class="order-submission-status" aria-live="polite"></p>
+        </form>
       </div>
     </main>
 
     <footer id="contact">
       <p>BrannEco · Made in India, Shipped Worldwide</p>
-      <p><a href="mailto:ritiknitw7697@gmail.com">ritiknitw7697@gmail.com</a> · +91 90392 20991</p>
+      <p><a href="mailto:admin@branneco.shop">admin@branneco.shop</a> · <a href="https://branneco.shop">branneco.shop</a> · +91 90392 20991</p>
     </footer>
 
     <script src="../assets/js/cart.js"></script>

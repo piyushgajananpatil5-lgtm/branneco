@@ -6,6 +6,8 @@
   const cartEmpty = document.getElementById("cartEmpty");
   const storageKey = "branneco-cart";
   const currencyStorageKey = "branneco-currency";
+  const minimumOrderQuantity = 500;
+  const orderEmail = "admin@branneco.shop";
   const exchangeRates = { USD: 1, EUR: 0.92, GBP: 0.79, AED: 3.67 };
   const currencyLabels = {
     INR: "₹ INR",
@@ -70,7 +72,7 @@
               usd: parsePrice(product.usd),
               inrText: String(product.inrText ?? product.inr ?? ""),
               usdText: String(product.usdText ?? product.usd ?? ""),
-              quantity: Math.max(1, Math.floor(Number(product.quantity) || 1)),
+              quantity: Math.max(minimumOrderQuantity, Math.floor(Number(product.quantity) || minimumOrderQuantity)),
             },
           ])
           .filter(([, product]) => product.inrText && product.usdText),
@@ -169,9 +171,9 @@
         const quantityInput = document.createElement("input");
         quantityInput.className = "cart-quantity";
         quantityInput.type = "number";
-        quantityInput.min = "1";
+        quantityInput.min = String(minimumOrderQuantity);
         quantityInput.step = "1";
-        quantityInput.value = "1";
+        quantityInput.value = String(minimumOrderQuantity);
         quantityInput.setAttribute("aria-label", `Quantity for ${sku}`);
 
         const addButton = document.createElement("button");
@@ -301,7 +303,7 @@
       const quantity = document.createElement("input");
       quantity.className = "cart-quantity cart-quantity-edit";
       quantity.type = "number";
-      quantity.min = "1";
+      quantity.min = String(minimumOrderQuantity);
       quantity.step = "1";
       quantity.value = String(product.quantity);
       quantity.dataset.sku = product.sku;
@@ -353,7 +355,7 @@
         (product) => `${product.sku} - ${product.description} x ${product.quantity} (${currencyLabels[selectedCurrency]} ${getPriceText(product)})`,
       );
       const body = ["Hi BrannEco,", "", "Please quote the following order:", ...orderLines, "", `${selectedCurrency} subtotal: ${currencyLabels[selectedCurrency]} ${formatPrice(subtotal, selectedCurrency)}`].join("\n");
-      quoteButton.href = `mailto:ritiknitw7697@gmail.com?subject=${encodeURIComponent("BrannEco Order Quote")}&body=${encodeURIComponent(body)}`;
+      quoteButton.href = `mailto:${orderEmail}?subject=${encodeURIComponent("BrannEco Order Quote")}&body=${encodeURIComponent(body)}`;
     }
   };
 
@@ -401,14 +403,23 @@
       status.classList.add("is-error");
       return;
     }
+    if (products.some((product) => product.quantity < minimumOrderQuantity)) {
+      status.textContent = `Each product must meet the minimum order of ${minimumOrderQuantity} units.`;
+      status.classList.add("is-error");
+      return;
+    }
+    const fullName = `${customer.firstName} ${customer.lastName}`.trim();
+    const shippingAddress = [customer.address1, customer.address2, customer.city, customer.state, customer.postalCode, customer.country].filter(Boolean).join(", ");
     const orderLines = products.map((product) =>
       `${product.sku} — ${product.description} × ${product.quantity} (${currencyLabels[selectedCurrency]} ${getPriceText(product)})`,
     );
     const emailBody = [
       "Hi BrannEco,", "", "Please quote this order:", ...orderLines,
-      "", `Customer: ${customer.name}`, `Email: ${customer.email}`, `Phone: ${customer.phone}`,
+      "", `Customer: ${fullName}`, `Company: ${customer.company}`, `Country: ${customer.country}`,
+      `Shipping address: ${shippingAddress}`, `GST: ${customer.gstNumber || "Not provided"}`,
+      `Email: ${customer.email}`, `Phone: ${customer.phone}`, "Website: branneco.shop",
     ].join("\n");
-    const makeMailto = (body) => `mailto:ritiknitw7697@gmail.com?subject=${encodeURIComponent("BrannEco Order Quote")}&body=${encodeURIComponent(body)}`;
+    const makeMailto = (body) => `mailto:${orderEmail}?subject=${encodeURIComponent("BrannEco Order Quote")}&body=${encodeURIComponent(body)}`;
     if (isLocalFile) {
       window.location.href = makeMailto(emailBody);
       return;
@@ -422,6 +433,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...customer,
+          name: fullName,
           currency: selectedCurrency,
           items: products.map(({ sku, quantity }) => ({ sku, quantity })),
         }),
@@ -465,7 +477,13 @@
     if (addButton) {
       const quantityInput = addButton.parentElement.querySelector(".cart-quantity");
       const quantity = Math.floor(Number(quantityInput?.value));
-      if (!Number.isFinite(quantity) || quantity < 1) return;
+      if (!Number.isFinite(quantity) || quantity < minimumOrderQuantity) {
+        quantityInput.value = String(minimumOrderQuantity);
+        quantityInput.setCustomValidity(`Minimum order is ${minimumOrderQuantity} units per product.`);
+        quantityInput.reportValidity();
+        return;
+      }
+      quantityInput.setCustomValidity("");
 
       const sku = addButton.dataset.sku;
       const product = cart[sku] || {
@@ -497,9 +515,9 @@
     if (!input) return;
 
     const quantity = Math.floor(Number(input.value));
-    if (!Number.isFinite(quantity) || quantity < 1) {
-      input.value = "1";
-      cart[input.dataset.sku].quantity = 1;
+    if (!Number.isFinite(quantity) || quantity < minimumOrderQuantity) {
+      input.value = String(minimumOrderQuantity);
+      cart[input.dataset.sku].quantity = minimumOrderQuantity;
     } else {
       cart[input.dataset.sku].quantity = quantity;
     }

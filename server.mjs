@@ -203,14 +203,17 @@ app.post('/api/admin/upload', requireAdmin, requireCsrf, adminLimiter, upload.si
 
 async function orderItems(input, currency) {
   if (!Array.isArray(input) || input.length < 1 || input.length > 50) throw new Error('Add between 1 and 50 products to your order.');
+  const validatedItems = input.map((item) => {
+    const sku = String(item?.sku || '').slice(0, 80);
+    const quantity = Math.floor(Number(item?.quantity));
+    if (!sku || !Number.isInteger(quantity) || quantity < 500 || quantity > 999999) throw new Error('The minimum order is 500 units per product.');
+    return { sku, quantity };
+  });
   let subtotal = 0;
   const exchangeRates = { USD: 1, EUR: 0.92, GBP: 0.79, AED: 3.67 };
   const db = await database();
   const items = [];
-  for (const item of input) {
-    const sku = String(item?.sku || '').slice(0, 80);
-    const quantity = Math.floor(Number(item?.quantity));
-    if (!sku || !Number.isInteger(quantity) || quantity < 1 || quantity > 999) throw new Error('Check product quantities and try again.');
+  for (const { sku, quantity } of validatedItems) {
     const product = await db.collection('products').findOne({ sku });
     if (!product) throw new Error(`Product ${sku} is no longer available.`);
     const amountText = currency === 'INR' ? product.inr : product.usd;
@@ -222,15 +225,25 @@ async function orderItems(input, currency) {
 }
 app.post('/api/orders', publicLimiter, async (req, res) => {
   try {
-    const name = String(req.body?.name || '').trim().slice(0, 120);
+    const firstName = String(req.body?.firstName || '').trim().slice(0, 60);
+    const lastName = String(req.body?.lastName || '').trim().slice(0, 60);
+    const name = `${firstName} ${lastName}`.trim().slice(0, 120) || String(req.body?.name || '').trim().slice(0, 120);
+    const company = String(req.body?.company || '').trim().slice(0, 160);
+    const country = String(req.body?.country || '').trim().slice(0, 80);
+    const address1 = String(req.body?.address1 || '').trim().slice(0, 200);
+    const address2 = String(req.body?.address2 || '').trim().slice(0, 200);
+    const city = String(req.body?.city || '').trim().slice(0, 100);
+    const state = String(req.body?.state || '').trim().slice(0, 100);
+    const postalCode = String(req.body?.postalCode || '').trim().slice(0, 20);
+    const gstNumber = String(req.body?.gstNumber || '').trim().slice(0, 30);
     const email = String(req.body?.email || '').trim().toLowerCase().slice(0, 254);
     const phone = String(req.body?.phone || '').trim().slice(0, 32);
     const currency = ['INR', 'USD', 'EUR', 'GBP', 'AED'].includes(req.body?.currency) ? req.body.currency : 'INR';
-    if (name.length < 2 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || phone.length < 7) return res.status(400).json({ error: 'Enter your name, a valid email address, and phone number.' });
+    if (name.length < 2 || company.length < 2 || !country || address1.length < 4 || city.length < 2 || state.length < 2 || postalCode.length < 3 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || phone.length < 7) return res.status(400).json({ error: 'Complete the required billing and shipping details with a valid email and phone number.' });
     const { items, subtotal } = await orderItems(req.body?.items, currency);
     const createdAt = now();
     const db = await database();
-    const result = await db.collection('orders').insertOne({ name, email, phone, currency, subtotal, status: 'new', items, created_at: createdAt, updated_at: createdAt });
+    const result = await db.collection('orders').insertOne({ name, firstName, lastName, company, country, address1, address2, city, state, postalCode, gstNumber, email, phone, currency, subtotal, status: 'new', items, created_at: createdAt, updated_at: createdAt });
     const reference = `BE-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${String(result.insertedId).slice(-5).toUpperCase()}`;
     await db.collection('orders').updateOne({ _id: result.insertedId }, { $set: { reference } });
     res.status(201).json({ reference });
