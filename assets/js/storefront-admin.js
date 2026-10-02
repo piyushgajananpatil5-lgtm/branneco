@@ -68,11 +68,12 @@
   trigger.type = 'button';
   trigger.textContent = '✉  Ask us a question';
   trigger.setAttribute('aria-expanded', 'false');
+  const whatsappNumber = '919039220991';
   const panel = document.createElement('section');
   panel.className = 'customer-help-panel';
   panel.setAttribute('aria-label', 'Contact BrannEco');
   panel.hidden = true;
-  panel.innerHTML = `<div class="customer-help-head"><div><strong>We’re happy to help</strong><span>Send a message to our team.</span></div><button type="button" class="customer-help-close" aria-label="Close contact form">×</button></div><form class="customer-help-form"><label>Your name<input name="name" autocomplete="name" required maxlength="120" /></label><label>Email address<input name="email" type="email" autocomplete="email" required maxlength="254" /></label><label>WhatsApp number<input name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+91 98765 43210" required minlength="7" maxlength="32" /></label><label>What can we help with?<textarea name="message" rows="4" required minlength="8" maxlength="5000" placeholder="Product questions, custom orders, delivery…"></textarea></label><button type="submit">Send message →</button><p class="customer-help-status" aria-live="polite"></p></form>`;
+  panel.innerHTML = `<div class="customer-help-head"><div><strong>We’re happy to help</strong><span>Your query opens in WhatsApp for you to send.</span></div><button type="button" class="customer-help-close" aria-label="Close contact form">×</button></div><form class="customer-help-form"><label>Your name<input name="name" autocomplete="name" required maxlength="120" /></label><label>Email address<input name="email" type="email" autocomplete="email" required maxlength="254" /></label><label>WhatsApp number<input name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+91 98765 43210" required minlength="7" maxlength="32" /></label><label>What can we help with?<textarea name="message" rows="4" required minlength="8" maxlength="5000" placeholder="Product questions, custom orders, delivery…"></textarea></label><button type="submit">Continue in WhatsApp →</button><p class="customer-help-status" aria-live="polite"></p></form>`;
   document.body.append(trigger, panel);
   const toggle = (open) => {
     panel.hidden = !open;
@@ -88,12 +89,21 @@
     const status = panel.querySelector('.customer-help-status');
     button.disabled = true; status.textContent = 'Sending…'; status.classList.remove('is-error');
     const data = Object.fromEntries(new FormData(form));
+    const phoneDigits = String(data.phone).replace(/\D/g, '');
+    if (phoneDigits.length < 7 || phoneDigits.length > 15) {
+      status.textContent = 'Enter a valid WhatsApp number with country code.';
+      status.classList.add('is-error');
+      button.disabled = false;
+      return;
+    }
+    const message = `Hi BrannEco, I have a query:\n\n${data.message}\n\nName: ${data.name}\nEmail: ${data.email}\nWhatsApp: ${data.phone}`;
+    window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
     try {
       const response = await fetch('/api/inquiries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...data, subject: 'Website enquiry' }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not send the message.');
-      form.reset(); status.textContent = `Thanks! Your message was received (${result.reference}).`;
-    } catch (error) { status.textContent = error.message || 'Please open the storefront from the local server to send a message.'; status.classList.add('is-error'); }
+      form.reset(); status.textContent = `WhatsApp is ready with your query (${result.reference}). Tap Send in WhatsApp to contact us.`;
+    } catch (error) { status.textContent = `${error.message || 'Could not save your enquiry.'} WhatsApp is open with your query; tap Send to contact us.`; status.classList.add('is-error'); }
     finally { button.disabled = false; }
   });
 })();
