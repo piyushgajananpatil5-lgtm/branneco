@@ -1,4 +1,5 @@
 (() => {
+  const minimumOrderQuantity = 500;
   const exchangeRates = { USD: 1, EUR: 0.92, GBP: 0.79, AED: 3.67 };
   const currencySymbols = { INR: "₹", USD: "US$", EUR: "€", GBP: "£", AED: "AED " };
   const formatAmount = (amount, currency) =>
@@ -62,8 +63,16 @@
       const rowButton = skuCell?.closest("tr")?.querySelector(".addrow");
       if (!rowButton) return;
 
-      const quantity = Math.min(999, Math.max(1, parseInt(quantityInput.value, 10) || 1));
-      for (let count = 0; count < quantity; count += 1) rowButton.click();
+      const quantity = Math.max(1, parseInt(quantityInput.value, 10) || 1);
+      if (quantity < minimumOrderQuantity) {
+        window.alert(`Minimum order is ${minimumOrderQuantity} units per product.`);
+        quantityInput.focus();
+        return;
+      }
+
+      const rowQuantityInput = rowButton.parentElement.querySelector(".cart-quantity");
+      rowQuantityInput.value = String(quantity);
+      rowButton.click();
     });
   });
 })();

@@ -324,6 +324,7 @@
         var addBtn = sec.querySelector('.quick-add-btn');
         if (!addBtn) return;
         var qtyInput = sec.querySelector('.qty-input');
+        var minimumOrderQuantity = 500;
 
         function clickMatchingRow(sku, qty) {
           var td = Array.prototype.find.call(
@@ -333,11 +334,19 @@
           if (!td) return;
           var rowAddBtn = td.closest('tr').querySelector('.addrow');
           if (!rowAddBtn) return;
-          for (var i = 0; i < qty; i++) rowAddBtn.click();
+          var rowQuantityInput = rowAddBtn.parentElement.querySelector('.cart-quantity');
+          if (!rowQuantityInput) return;
+          rowQuantityInput.value = String(qty);
+          rowAddBtn.click();
         }
 
         addBtn.addEventListener('click', function () {
           var qty = Math.max(1, parseInt(qtyInput && qtyInput.value, 10) || 1);
+          if (qty < minimumOrderQuantity) {
+            window.alert('Minimum order is ' + minimumOrderQuantity + ' units per product.');
+            if (qtyInput) qtyInput.focus();
+            return;
+          }
 
           // Single-variant section (no dropdown) — SKU is on the button itself.
           if (addBtn.dataset.singleSku) {

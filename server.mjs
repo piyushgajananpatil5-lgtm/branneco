@@ -26,7 +26,11 @@ async function database() {
   if (!MONGODB_URI) throw new Error('MONGODB_URI is not configured.');
   if (!databasePromise) {
     const client = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 8000 });
-    databasePromise = client.connect().then(() => client.db(MONGODB_DB));
+    databasePromise = client.connect().then(async () => {
+      const db = client.db(MONGODB_DB);
+      await db.collection('subadmins').createIndex({ email: 1 }, { unique: true });
+      return db;
+    });
   }
   return databasePromise;
 }
@@ -94,11 +98,12 @@ async function getSession(req) {
   if (!token || !/^[\da-f]{64}$/.test(token)) return null;
   const db = await database();
   const session = await db.collection('admin_sessions').findOne({ token_hash: sha(token), expires_at: { $gt: Date.now() } });
-  return session ? { ...session, token } : null;
+  return session ? { ...session, email: session.email || process.env.ADMIN_EMAIL, role: session.role || 'owner', token } : null;
 }
 async function requireAdmin(req, res, next) {
   try {
-    if (!await getSession(req)) return res.status(401).json({ error: 'Please sign in again.' });
+    req.adminSession = await getSession(req);
+    if (!req.adminSession) return res.status(401).json({ error: 'Please sign in again.' });
     return next();
   } catch (error) {
     return res.status(503).json({ error: error.message });
@@ -135,15 +140,18 @@ app.post('/api/admin/login', loginLimiter, async (req, res) => {
     const email = String(req.body?.email || '').trim().toLowerCase();
     const password = String(req.body?.password || '');
     if (!configuredAdmin()) return res.status(503).json({ error: 'Admin account is not set up. Configure ADMIN_EMAIL and ADMIN_PASSWORD_HASH.' });
-    const emailMatches = safeEqual(email, process.env.ADMIN_EMAIL.toLowerCase());
-    const passwordMatches = await bcrypt.compare(password, process.env.ADMIN_PASSWORD_HASH).catch(() => false);
-    if (!emailMatches || !passwordMatches) return res.status(401).json({ error: 'Email or password is incorrect.' });
+    const isOwner = safeEqual(email, process.env.ADMIN_EMAIL.toLowerCase());
+    const db = await database();
+    const subadmin = isOwner ? null : await db.collection('subadmins').findOne({ email, active: true });
+    const passwordHash = isOwner ? process.env.ADMIN_PASSWORD_HASH : subadmin?.password_hash;
+    const passwordMatches = await bcrypt.compare(password, passwordHash || '').catch(() => false);
+    if ((!isOwner && !subadmin) || !passwordMatches) return res.status(401).json({ error: 'Email or password is incorrect.' });
     const token = randomBytes(32).toString('hex');
     const csrf = randomBytes(32).toString('hex');
-    const db = await database();
-    await db.collection('admin_sessions').insertOne({ token_hash: sha(token), csrf_hash: sha(csrf), expires_at: Date.now() + SESSION_MS });
+    const role = isOwner ? 'owner' : 'subadmin';
+    await db.collection('admin_sessions').insertOne({ token_hash: sha(token), csrf_hash: sha(csrf), email, role, expires_at: Date.now() + SESSION_MS });
     res.setHeader('Set-Cookie', `branneco_admin=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(SESSION_MS / 1000)}${req.secure ? '; Secure' : ''}`);
-    res.json({ email, csrfToken: csrf, expiresIn: SESSION_MS });
+    res.json({ email, role, csrfToken: csrf, expiresIn: SESSION_MS });
   } catch (error) { res.status(503).json({ error: error.message }); }
 });
 app.get('/api/admin/session', async (req, res) => {
@@ -153,7 +161,7 @@ app.get('/api/admin/session', async (req, res) => {
     const csrfToken = randomBytes(32).toString('hex');
     const db = await database();
     await db.collection('admin_sessions').updateOne({ token_hash: sha(session.token) }, { $set: { csrf_hash: sha(csrfToken) } });
-    res.json({ email: process.env.ADMIN_EMAIL, csrfToken });
+    res.json({ email: session.email || process.env.ADMIN_EMAIL, role: session.role || 'owner', csrfToken });
   } catch (error) { res.status(503).json({ error: error.message }); }
 });
 app.post('/api/admin/logout', requireAdmin, requireCsrf, async (req, res) => {
@@ -161,6 +169,45 @@ app.post('/api/admin/logout', requireAdmin, requireCsrf, async (req, res) => {
   if (session) { const db = await database(); await db.collection('admin_sessions').deleteOne({ token_hash: sha(session.token) }); }
   res.setHeader('Set-Cookie', 'branneco_admin=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');
   res.json({ ok: true });
+});
+
+function requireOwner(req, res, next) {
+  if (req.adminSession?.role !== 'owner') return res.status(403).json({ error: 'Only the primary admin can manage sub-admins.' });
+  next();
+}
+app.get('/api/admin/subadmins', requireAdmin, requireOwner, adminLimiter, async (_req, res) => {
+  try {
+    const db = await database();
+    const subadmins = await db.collection('subadmins').find({ active: true }, { projection: { email: 1, role: 1, created_at: 1 } }).sort({ email: 1 }).toArray();
+    res.json({ subadmins: subadmins.map(({ _id, ...user }) => ({ ...user, id: _id.toString() })) });
+  } catch (error) { res.status(503).json({ error: error.message }); }
+});
+app.post('/api/admin/subadmins', requireAdmin, requireCsrf, requireOwner, adminLimiter, async (req, res) => {
+  try {
+    const email = String(req.body?.email || '').trim().toLowerCase().slice(0, 254);
+    const password = String(req.body?.password || '');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Enter a valid sub-admin email address.' });
+    if (safeEqual(email, process.env.ADMIN_EMAIL.toLowerCase())) return res.status(400).json({ error: 'The primary admin account cannot be added as a sub-admin.' });
+    if (password.length < 12 || password.length > 128) return res.status(400).json({ error: 'Sub-admin passwords must be 12 to 128 characters.' });
+    const db = await database();
+    const result = await db.collection('subadmins').insertOne({ email, password_hash: await bcrypt.hash(password, 12), role: 'subadmin', active: true, created_at: now() });
+    res.status(201).json({ subadmin: { id: result.insertedId.toString(), email, role: 'subadmin', created_at: now() } });
+  } catch (error) {
+    if (error.code === 11000) return res.status(409).json({ error: 'A sub-admin with that email already exists.' });
+    res.status(503).json({ error: error.message });
+  }
+});
+app.delete('/api/admin/subadmins/:id', requireAdmin, requireCsrf, requireOwner, adminLimiter, async (req, res) => {
+  if (!/^[0-9a-fA-F]{24}$/.test(req.params.id)) return res.status(404).json({ error: 'Sub-admin not found.' });
+  try {
+    const db = await database();
+    const subadmin = await db.collection('subadmins').findOne({ _id: new ObjectId(req.params.id) });
+    if (!subadmin) return res.status(404).json({ error: 'Sub-admin not found.' });
+    const result = await db.collection('subadmins').deleteOne({ _id: subadmin._id });
+    if (!result.deletedCount) return res.status(404).json({ error: 'Sub-admin not found.' });
+    await db.collection('admin_sessions').deleteMany({ role: 'subadmin', email: subadmin.email });
+    res.json({ ok: true });
+  } catch (error) { res.status(503).json({ error: error.message }); }
 });
 
 const listProducts = async () => {

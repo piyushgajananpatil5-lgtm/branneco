@@ -7,6 +7,8 @@
   let products = [];
   let orders = [];
   let inquiries = [];
+  let subadmins = [];
+  let adminRole = 'owner';
   let currentView = 'overview';
   let toastTimeout;
 
@@ -40,11 +42,14 @@
     loginView.hidden = false;
     $('#loginPassword').value = '';
   }
-  function showDashboard(email) {
+  function showDashboard(email, role = 'owner') {
     loginView.hidden = true;
     dashboardView.hidden = false;
+    adminRole = role;
     $('#adminEmail').textContent = email;
+    $('#adminRoleLabel').textContent = role === 'owner' ? 'Primary admin' : 'Sub-admin';
     $('#adminAvatar').textContent = email.charAt(0).toUpperCase();
+    $('#navSubadmins').hidden = role !== 'owner';
     $('#todayLabel').textContent = new Intl.DateTimeFormat(undefined, { dateStyle: 'full' }).format(new Date());
     switchView('overview');
     refreshAll().catch((error) => flash(error.message, true));
@@ -52,7 +57,7 @@
   async function startSession() {
     const session = await request('/api/admin/session');
     csrfToken = session.csrfToken;
-    showDashboard(session.email);
+    showDashboard(session.email, session.role);
   }
   loginForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -64,7 +69,7 @@
       const result = await request('/api/admin/login', { method: 'POST', body: JSON.stringify({ email: form.get('email'), password: form.get('password') }) });
       csrfToken = result.csrfToken;
       loginForm.reset();
-      showDashboard(result.email);
+      showDashboard(result.email, result.role);
     } catch (error) {
       $('#loginError').textContent = error.message;
       $('#loginError').hidden = false;
@@ -76,15 +81,17 @@
   });
 
   function switchView(name) {
+    if (name === 'subadmins' && adminRole !== 'owner') name = 'overview';
     currentView = name;
     document.querySelectorAll('.dashboard-content').forEach((section) => { section.hidden = section.id !== `view-${name}`; });
     document.querySelectorAll('.side-link').forEach((button) => button.classList.toggle('active', button.dataset.view === name));
-    const labels = { overview: 'Overview', products: 'Products', orders: 'Orders', inquiries: 'Customer enquiries' };
+    const labels = { overview: 'Overview', products: 'Products', orders: 'Orders', inquiries: 'Customer enquiries', subadmins: 'Sub-admins' };
     $('#pageBreadcrumb').textContent = labels[name] || 'Overview';
     $('#sidebar').classList.remove('mobile-open');
     if (name === 'products') renderProducts();
     if (name === 'orders') renderOrders();
     if (name === 'inquiries') renderInquiries();
+    if (name === 'subadmins') loadSubadmins().catch((error) => flash(error.message, true));
   }
   document.querySelectorAll('[data-view], [data-jump]').forEach((button) => button.addEventListener('click', () => switchView(button.dataset.view || button.dataset.jump)));
   $('#menuToggle').addEventListener('click', () => $('#sidebar').classList.toggle('mobile-open'));
@@ -113,6 +120,41 @@
     renderRecent();
     switchView(currentView);
   }
+  function renderSubadmins() {
+    $('#subadminCount').textContent = `${subadmins.length} account${subadmins.length === 1 ? '' : 's'}`;
+    $('#subadminsEmpty').hidden = subadmins.length > 0;
+    $('#subadminsList').innerHTML = subadmins.map((user) => `<article class="compact-row"><span class="compact-icon green">♙</span><span class="compact-copy"><strong>${escapeHtml(user.email)}</strong><span>Sub-admin · Added ${escapeHtml(dateLabel(user.created_at))}</span></span><button class="button button-outline" data-remove-subadmin="${escapeHtml(user.id)}" type="button">Remove</button></article>`).join('');
+  }
+  async function loadSubadmins() {
+    const result = await request('/api/admin/subadmins');
+    subadmins = result.subadmins;
+    renderSubadmins();
+  }
+  $('#subadminForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = $('button[type="submit"]', form);
+    button.disabled = true;
+    try {
+      const values = Object.fromEntries(new FormData(form));
+      await request('/api/admin/subadmins', { method: 'POST', body: JSON.stringify(values) });
+      form.reset();
+      await loadSubadmins();
+      flash('Sub-admin account created.');
+    } catch (error) { flash(error.message, true); }
+    finally { button.disabled = false; }
+  });
+  $('#subadminsList').addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-remove-subadmin]');
+    if (!button) return;
+    button.disabled = true;
+    try {
+      await request(`/api/admin/subadmins/${button.dataset.removeSubadmin}`, { method: 'DELETE' });
+      await loadSubadmins();
+      flash('Sub-admin removed and active sessions revoked.');
+    } catch (error) { flash(error.message, true); }
+    finally { if (button.isConnected) button.disabled = false; }
+  });
   function renderCategoryOptions() {
     const select = $('#productCategory');
     const current = select.value;

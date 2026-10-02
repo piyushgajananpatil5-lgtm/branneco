@@ -72,7 +72,7 @@
               usd: parsePrice(product.usd),
               inrText: String(product.inrText ?? product.inr ?? ""),
               usdText: String(product.usdText ?? product.usd ?? ""),
-              quantity: Math.max(minimumOrderQuantity, Math.floor(Number(product.quantity) || minimumOrderQuantity)),
+              quantity: Math.max(1, Math.floor(Number(product.quantity) || 1)),
             },
           ])
           .filter(([, product]) => product.inrText && product.usdText),
@@ -171,9 +171,10 @@
         const quantityInput = document.createElement("input");
         quantityInput.className = "cart-quantity";
         quantityInput.type = "number";
-        quantityInput.min = String(minimumOrderQuantity);
+        quantityInput.min = "1";
         quantityInput.step = "1";
-        quantityInput.value = String(minimumOrderQuantity);
+        quantityInput.value = "1";
+        quantityInput.placeholder = `Min. ${minimumOrderQuantity}`;
         quantityInput.setAttribute("aria-label", `Quantity for ${sku}`);
 
         const addButton = document.createElement("button");
@@ -192,6 +193,7 @@
         controls.className = "cart-add-controls";
         controls.append(quantityInput, addButton);
         orderCell.replaceChildren(controls);
+        quantityInput.addEventListener("input", () => quantityInput.setCustomValidity(""));
       });
     });
   };
@@ -478,7 +480,6 @@
       const quantityInput = addButton.parentElement.querySelector(".cart-quantity");
       const quantity = Math.floor(Number(quantityInput?.value));
       if (!Number.isFinite(quantity) || quantity < minimumOrderQuantity) {
-        quantityInput.value = String(minimumOrderQuantity);
         quantityInput.setCustomValidity(`Minimum order is ${minimumOrderQuantity} units per product.`);
         quantityInput.reportValidity();
         return;
@@ -516,11 +517,13 @@
 
     const quantity = Math.floor(Number(input.value));
     if (!Number.isFinite(quantity) || quantity < minimumOrderQuantity) {
-      input.value = String(minimumOrderQuantity);
-      cart[input.dataset.sku].quantity = minimumOrderQuantity;
-    } else {
-      cart[input.dataset.sku].quantity = quantity;
+      input.setCustomValidity(`Minimum order is ${minimumOrderQuantity} units per product.`);
+      input.reportValidity();
+      input.value = String(cart[input.dataset.sku].quantity);
+      return;
     }
+    input.setCustomValidity("");
+    cart[input.dataset.sku].quantity = quantity;
     saveCart();
   });
 
