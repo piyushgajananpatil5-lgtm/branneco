@@ -577,6 +577,7 @@ footer a {
   display: flex;
   min-height: 3.2rem;
   align-items: center;
+  margin: 0;
   background: linear-gradient(120deg, #163a2b, var(--green));
   color: #fff;
   padding: 0.85rem 1.1rem;
