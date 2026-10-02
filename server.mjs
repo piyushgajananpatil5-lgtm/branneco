@@ -8,7 +8,7 @@ import * as cheerio from 'cheerio';
 import nodemailer from 'nodemailer';
 import { rateLimit } from 'express-rate-limit';
 import { fileTypeFromBuffer } from 'file-type';
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -37,6 +37,7 @@ async function database() {
 
 const now = () => new Date().toISOString();
 const sha = (value) => createHash('sha256').update(value).digest('hex');
+const csrfForSession = (token) => createHmac('sha256', token).update('branneco-admin-csrf-v1').digest('hex');
 const FALLBACK_EXCHANGE_RATES = { USD: 1, EUR: 0.92, GBP: 0.79, AED: 3.67 };
 const EXCHANGE_RATE_TTL_MS = 6 * 60 * 60 * 1000;
 let exchangeRateCache = { base: 'USD', rates: { ...FALLBACK_EXCHANGE_RATES }, updatedAt: null, source: 'fallback' };
@@ -138,7 +139,11 @@ async function requireAdmin(req, res, next) {
 async function requireCsrf(req, res, next) {
   try {
     const session = await getSession(req);
-    if (!session || !safeEqual(sha(req.get('x-csrf-token') || ''), session.csrf_hash)) return res.status(403).json({ error: 'Security token expired. Refresh the page and sign in again.' });
+    const providedToken = req.get('x-csrf-token') || '';
+    const validToken = session?.csrf_version === 2
+      ? safeEqual(providedToken, csrfForSession(session.token))
+      : session && safeEqual(sha(providedToken), session.csrf_hash || '');
+    if (!validToken) return res.status(403).json({ error: 'Security token expired. Refresh the page and sign in again.' });
     return next();
   } catch (error) {
     return res.status(503).json({ error: error.message });
@@ -177,9 +182,9 @@ app.post('/api/admin/login', loginLimiter, async (req, res) => {
     const passwordMatches = await bcrypt.compare(password, passwordHash || '').catch(() => false);
     if ((!isOwner && !subadmin) || !passwordMatches) return res.status(401).json({ error: 'Email or password is incorrect.' });
     const token = randomBytes(32).toString('hex');
-    const csrf = randomBytes(32).toString('hex');
+    const csrf = csrfForSession(token);
     const role = isOwner ? 'owner' : 'subadmin';
-    await db.collection('admin_sessions').insertOne({ token_hash: sha(token), csrf_hash: sha(csrf), email, role, expires_at: Date.now() + SESSION_MS });
+    await db.collection('admin_sessions').insertOne({ token_hash: sha(token), csrf_version: 2, email, role, expires_at: Date.now() + SESSION_MS });
     res.setHeader('Set-Cookie', `branneco_admin=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(SESSION_MS / 1000)}${req.secure ? '; Secure' : ''}`);
     res.json({ email, role, csrfToken: csrf, expiresIn: SESSION_MS });
   } catch (error) { res.status(503).json({ error: error.message }); }
@@ -188,10 +193,15 @@ app.get('/api/admin/session', async (req, res) => {
   try {
     const session = await getSession(req);
     if (!session) return res.status(401).json({ error: 'Not signed in.' });
-    const csrfToken = randomBytes(32).toString('hex');
     const db = await database();
-    await db.collection('admin_sessions').updateOne({ token_hash: sha(session.token) }, { $set: { csrf_hash: sha(csrfToken) } });
-    res.json({ email: session.email || process.env.ADMIN_EMAIL, role: session.role || 'owner', csrfToken });
+    const csrfToken = csrfForSession(session.token);
+    if (session.csrf_version !== 2) {
+      await db.collection('admin_sessions').updateOne(
+        { token_hash: sha(session.token), csrf_version: { $ne: 2 } },
+        { $set: { csrf_version: 2 }, $unset: { csrf_hash: '' } },
+      );
+    }
+    res.set('Cache-Control', 'no-store').json({ email: session.email || process.env.ADMIN_EMAIL, role: session.role || 'owner', csrfToken });
   } catch (error) { res.status(503).json({ error: error.message }); }
 });
 app.post('/api/admin/logout', requireAdmin, requireCsrf, async (req, res) => {

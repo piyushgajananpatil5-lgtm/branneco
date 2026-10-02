@@ -28,7 +28,22 @@
     const headers = new Headers(options.headers || {});
     if (options.body && !(options.body instanceof FormData)) headers.set('Content-Type', 'application/json');
     if (options.method && options.method !== 'GET' && csrfToken) headers.set('X-CSRF-Token', csrfToken);
-    const response = await fetch(url, { ...options, headers, credentials: 'same-origin' });
+    const sendRequest = () => fetch(url, { ...options, headers, credentials: 'same-origin' });
+    let response = await sendRequest();
+    if (response.status === 403 && csrfToken) {
+      const failure = await response.clone().json().catch(() => ({}));
+      if (String(failure.error || '').includes('Security token expired')) {
+        const sessionResponse = await fetch('/api/admin/session', { credentials: 'same-origin', cache: 'no-store' });
+        if (sessionResponse.ok) {
+          const session = await sessionResponse.json();
+          csrfToken = session.csrfToken;
+          headers.set('X-CSRF-Token', csrfToken);
+          response = await sendRequest();
+        } else if (sessionResponse.status === 401) {
+          showLogin();
+        }
+      }
+    }
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       if (response.status === 401 && dashboardView && !dashboardView.hidden) showLogin();
