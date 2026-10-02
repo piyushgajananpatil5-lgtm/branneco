@@ -343,7 +343,8 @@
         addBtn.addEventListener('click', function () {
           var qty = Math.max(1, parseInt(qtyInput && qtyInput.value, 10) || 1);
           if (qty < minimumOrderQuantity) {
-            window.alert('Minimum order is ' + minimumOrderQuantity + ' units per product.');
+            if (window.brannEcoShowMoqDialog) window.brannEcoShowMoqDialog(qtyInput);
+            else window.alert('Minimum order is ' + minimumOrderQuantity + ' units per product.');
             if (qtyInput) qtyInput.focus();
             return;
           }

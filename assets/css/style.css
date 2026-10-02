@@ -1119,6 +1119,96 @@ footer a {
   overflow-wrap: anywhere;
 }
 
+.moq-dialog {
+  width: min(410px, calc(100vw - 32px));
+  margin: auto;
+  padding: 0;
+  border: 1px solid #dce6db;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 24px 70px #102a1d40;
+}
+
+.moq-dialog::backdrop {
+  background: #142c1f88;
+  backdrop-filter: blur(3px);
+}
+
+.moq-dialog[open] {
+  animation: moq-dialog-enter 160ms ease-out;
+}
+
+.moq-dialog-content {
+  padding: 1.6rem;
+}
+
+.moq-dialog-mark {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  margin-bottom: 1rem;
+  border-radius: 8px;
+  background: #eaf1e6;
+  color: var(--green);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.moq-dialog-eyebrow {
+  margin: 0 0 0.35rem;
+  color: #647b67;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.moq-dialog h2 {
+  margin: 0;
+  color: var(--green);
+  font-size: 1.25rem;
+  line-height: 1.3;
+}
+
+.moq-dialog-description,
+.moq-dialog-content > p:last-of-type {
+  margin: 0.65rem 0 1.25rem;
+  color: #59665c;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.moq-dialog-dismiss {
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--green);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.moq-dialog-dismiss:hover {
+  background: #24553c;
+}
+
+.moq-dialog-dismiss:focus-visible {
+  outline: 3px solid #c98a1f;
+  outline-offset: 3px;
+}
+
+@keyframes moq-dialog-enter {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .moq-dialog[open] { animation: none; }
+}
+
 .cart-contact-links {
   display: grid;
   gap: 0.45rem;

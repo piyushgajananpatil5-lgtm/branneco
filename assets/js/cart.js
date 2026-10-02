@@ -127,6 +127,31 @@
     toastTimeout = setTimeout(() => toast.classList.remove("show"), 1600);
   };
 
+  let moqDialog;
+  const showMoqDialog = (focusTarget) => {
+    if (!moqDialog) {
+      moqDialog = document.createElement("dialog");
+      moqDialog.className = "moq-dialog";
+      moqDialog.setAttribute("aria-labelledby", "moqDialogTitle");
+      moqDialog.setAttribute("aria-describedby", "moqDialogDescription");
+      moqDialog.innerHTML = '<div class="moq-dialog-content"><span class="moq-dialog-mark" aria-hidden="true">500+</span><p class="moq-dialog-eyebrow">Minimum order quantity</p><h2 id="moqDialogTitle">A 500-unit minimum applies</h2><p id="moqDialogDescription">Please enter at least 500 units for each product before adding it to your cart.</p><button class="moq-dialog-dismiss" type="button">Got it</button></div>';
+      moqDialog.addEventListener("click", (event) => {
+        if (event.target === moqDialog) moqDialog.close();
+      });
+      moqDialog.querySelector(".moq-dialog-dismiss").addEventListener("click", () => moqDialog.close());
+      moqDialog.addEventListener("close", () => {
+        const target = moqDialog.returnFocusTarget;
+        if (target?.isConnected && target.getClientRects().length) target.focus({ preventScroll: true });
+      });
+      document.body.append(moqDialog);
+    }
+    if (moqDialog.open) return;
+    moqDialog.returnFocusTarget = focusTarget;
+    moqDialog.showModal();
+    moqDialog.querySelector(".moq-dialog-dismiss").focus();
+  };
+  window.brannEcoShowMoqDialog = showMoqDialog;
+
   const setupCatalogTables = () => {
     document.querySelectorAll(".catsec table").forEach((table) => {
       const header = table.rows[0];
@@ -408,6 +433,7 @@
     if (products.some((product) => product.quantity < minimumOrderQuantity)) {
       status.textContent = `Each product must meet the minimum order of ${minimumOrderQuantity} units.`;
       status.classList.add("is-error");
+      showMoqDialog();
       return;
     }
     const fullName = `${customer.firstName} ${customer.lastName}`.trim();
@@ -480,8 +506,7 @@
       const quantityInput = addButton.parentElement.querySelector(".cart-quantity");
       const quantity = Math.floor(Number(quantityInput?.value));
       if (!Number.isFinite(quantity) || quantity < minimumOrderQuantity) {
-        quantityInput.setCustomValidity(`Minimum order is ${minimumOrderQuantity} units per product.`);
-        quantityInput.reportValidity();
+        showMoqDialog(quantityInput);
         return;
       }
       quantityInput.setCustomValidity("");
@@ -517,12 +542,10 @@
 
     const quantity = Math.floor(Number(input.value));
     if (!Number.isFinite(quantity) || quantity < minimumOrderQuantity) {
-      input.setCustomValidity(`Minimum order is ${minimumOrderQuantity} units per product.`);
-      input.reportValidity();
+      showMoqDialog(input);
       input.value = String(cart[input.dataset.sku].quantity);
       return;
     }
-    input.setCustomValidity("");
     cart[input.dataset.sku].quantity = quantity;
     saveCart();
   });

@@ -65,7 +65,8 @@
 
       const quantity = Math.max(1, parseInt(quantityInput.value, 10) || 1);
       if (quantity < minimumOrderQuantity) {
-        window.alert(`Minimum order is ${minimumOrderQuantity} units per product.`);
+        if (window.brannEcoShowMoqDialog) window.brannEcoShowMoqDialog(quantityInput);
+        else window.alert(`Minimum order is ${minimumOrderQuantity} units per product.`);
         quantityInput.focus();
         return;
       }
