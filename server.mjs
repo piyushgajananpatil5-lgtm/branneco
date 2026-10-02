@@ -393,6 +393,15 @@ app.get('/api/admin/inquiries', requireAdmin, adminLimiter, async (req, res) => 
     res.json({ inquiries: inquiries.map(({ _id, ...inquiry }) => ({ ...inquiry, id: _id.toString() })) });
   } catch (error) { res.status(503).json({ error: error.message }); }
 });
+app.delete('/api/admin/inquiries/:id', requireAdmin, requireCsrf, adminLimiter, async (req, res) => {
+  if (!/^[0-9a-fA-F]{24}$/.test(req.params.id)) return res.status(404).json({ error: 'Enquiry not found.' });
+  try {
+    const db = await database();
+    const result = await db.collection('inquiries').deleteOne({ _id: new ObjectId(req.params.id) });
+    if (!result.deletedCount) return res.status(404).json({ error: 'Enquiry not found.' });
+    res.json({ ok: true });
+  } catch (error) { res.status(503).json({ error: error.message }); }
+});
 function mailer() {
   if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) return null;
   return nodemailer.createTransport({ host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT) || 587, secure: process.env.SMTP_SECURE === 'true', auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
