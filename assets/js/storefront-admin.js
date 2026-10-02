@@ -3,7 +3,10 @@
   const category = location.pathname.split('/').pop().replace(/\.html$/i, '') || 'index';
   const products = new Map();
   const updateProduct = (product) => {
+    const previous = products.get(product.sku);
+    const changed = !previous || ['name', 'inr', 'usd', 'image_url'].some((key) => previous[key] !== product[key]);
     products.set(product.sku, product);
+    if (!changed) return false;
     document.querySelectorAll('.catsec').forEach((section) => {
       const row = [...section.querySelectorAll('td.sku')].find((cell) => cell.textContent.trim() === product.sku)?.closest('tr');
       if (!row) return;
@@ -31,14 +34,23 @@
         image.dataset.productImages = JSON.stringify(saved);
       }
     });
+    return true;
   };
-  fetch(`/api/catalog?category=${encodeURIComponent(category)}`, { credentials: 'same-origin', cache: 'no-store' })
-    .then((response) => response.ok ? response.json() : Promise.reject())
-    .then((data) => {
-      data.products.forEach(updateProduct);
-      document.dispatchEvent(new CustomEvent('branneco:catalogupdated', { detail: { products } }));
-    })
-    .catch(() => {});
+  const refreshCatalog = async () => {
+    try {
+      const response = await fetch(`/api/catalog?category=${encodeURIComponent(category)}`, { credentials: 'same-origin', cache: 'no-store' });
+      if (!response.ok) return;
+      const data = await response.json();
+      let changed = false;
+      data.products.forEach((product) => { changed = updateProduct(product) || changed; });
+      if (changed) document.dispatchEvent(new CustomEvent('branneco:catalogupdated', { detail: { products } }));
+    } catch {}
+  };
+  if (document.querySelector('.catsec')) {
+    refreshCatalog();
+    window.setInterval(() => { if (!document.hidden) refreshCatalog(); }, 30_000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshCatalog(); });
+  }
 
   document.addEventListener('change', (event) => {
     const select = event.target.closest('.variant-select');

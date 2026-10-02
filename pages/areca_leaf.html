@@ -270,7 +270,7 @@
     <script src="../assets/js/storefront-admin.js"></script>
     <script>
       function updateArecaPrices(currency) {
-        var exchangeRates = { USD: 1, EUR: 0.92, GBP: 0.79, AED: 3.67 };
+        var exchangeRates = window.brannEcoExchangeRates || { USD: 1, EUR: 0.92, GBP: 0.79, AED: 3.67 };
         var currencySymbols = { INR: "₹", USD: "US$", EUR: "€", GBP: "£", AED: "AED " };
         var formatAmount = function (amount) {
           return new Intl.NumberFormat("en-IN", {
@@ -311,8 +311,14 @@
       }
 
       updateArecaPrices(document.documentElement.dataset.currency || "INR");
-      window.addEventListener("branneco:currencychange", function (event) {
+      document.addEventListener("branneco:currencychange", function (event) {
         updateArecaPrices(event.detail.currency);
+      });
+      document.addEventListener("branneco:exchangerateschange", function () {
+        updateArecaPrices(document.documentElement.dataset.currency || "INR");
+      });
+      document.addEventListener("branneco:catalogupdated", function () {
+        updateArecaPrices(document.documentElement.dataset.currency || "INR");
       });
 
       // Quick-add: lets a shopper pick a size/item from the dropdown (or, for

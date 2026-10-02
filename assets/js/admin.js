@@ -190,7 +190,7 @@
     try {
       const result = await request(`/api/admin/products/${encodeURIComponent(button.dataset.save)}`, { method: 'PATCH', body: JSON.stringify({ inr: $('[data-price="inr"]', row).value, usd: $('[data-price="usd"]', row).value }) });
       Object.assign(products.find((product) => product.sku === button.dataset.save), result.product);
-      flash(`${button.dataset.save} saved. The storefront is updated.`);
+      flash(`${button.dataset.save} saved. Storefront prices will refresh shortly.`);
       button.textContent = 'Saved ✓';
       setTimeout(() => { if (button.isConnected) button.textContent = 'Save'; }, 1600);
     } catch (error) { flash(error.message, true); }

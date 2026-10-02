@@ -8,7 +8,8 @@
   const currencyStorageKey = "branneco-currency";
   const minimumOrderQuantity = 500;
   const orderEmail = "admin@branneco.shop";
-  const exchangeRates = { USD: 1, EUR: 0.92, GBP: 0.79, AED: 3.67 };
+  const exchangeRates = window.brannEcoExchangeRates || { USD: 1, EUR: 0.92, GBP: 0.79, AED: 3.67 };
+  window.brannEcoExchangeRates = exchangeRates;
   const currencyLabels = {
     INR: "₹ INR",
     USD: "$ USD",
@@ -386,6 +387,25 @@
     }
   };
 
+  const refreshExchangeRates = async () => {
+    if (isLocalFile) return;
+    try {
+      const response = await fetch("/api/exchange-rates", { cache: "no-store" });
+      if (!response.ok) return;
+      const result = await response.json();
+      const rates = result.rates || {};
+      for (const currency of ["EUR", "GBP", "AED"]) {
+        const rate = Number(rates[currency]);
+        if (!Number.isFinite(rate) || rate <= 0) return;
+        exchangeRates[currency] = rate;
+      }
+      exchangeRates.USD = 1;
+      applySelectedCurrency();
+      renderCartPage();
+      document.dispatchEvent(new CustomEvent("branneco:exchangerateschange", { detail: result }));
+    } catch {}
+  };
+
   document.addEventListener("branneco:catalogupdated", (event) => {
     const updatedProducts = event.detail?.products;
     if (!(updatedProducts instanceof Map)) return;
@@ -566,4 +586,8 @@
   applySelectedCurrency();
   updateCartButton();
   renderCartPage();
+  refreshExchangeRates();
+  window.setInterval(() => {
+    if (!document.hidden) refreshExchangeRates();
+  }, 30 * 60 * 1000);
 })();

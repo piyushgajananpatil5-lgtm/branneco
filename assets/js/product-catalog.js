@@ -1,6 +1,6 @@
 (() => {
   const minimumOrderQuantity = 500;
-  const exchangeRates = { USD: 1, EUR: 0.92, GBP: 0.79, AED: 3.67 };
+  const exchangeRates = window.brannEcoExchangeRates || { USD: 1, EUR: 0.92, GBP: 0.79, AED: 3.67 };
   const currencySymbols = { INR: "₹", USD: "US$", EUR: "€", GBP: "£", AED: "AED " };
   const formatAmount = (amount, currency) =>
     new Intl.NumberFormat("en-IN", {
@@ -40,6 +40,12 @@
 
   updateProductPrices(document.documentElement.dataset.currency || "INR");
   document.addEventListener("branneco:catalogupdated", () => {
+    updateProductPrices(document.documentElement.dataset.currency || "INR");
+  });
+  document.addEventListener("branneco:currencychange", (event) => {
+    updateProductPrices(event.detail.currency);
+  });
+  document.addEventListener("branneco:exchangerateschange", () => {
     updateProductPrices(document.documentElement.dataset.currency || "INR");
   });
 

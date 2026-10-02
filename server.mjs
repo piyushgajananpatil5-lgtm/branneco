@@ -37,6 +37,32 @@ async function database() {
 
 const now = () => new Date().toISOString();
 const sha = (value) => createHash('sha256').update(value).digest('hex');
+const FALLBACK_EXCHANGE_RATES = { USD: 1, EUR: 0.92, GBP: 0.79, AED: 3.67 };
+const EXCHANGE_RATE_TTL_MS = 6 * 60 * 60 * 1000;
+let exchangeRateCache = { base: 'USD', rates: { ...FALLBACK_EXCHANGE_RATES }, updatedAt: null, source: 'fallback' };
+let exchangeRateCacheExpiresAt = 0;
+
+async function getExchangeRates() {
+  if (Date.now() < exchangeRateCacheExpiresAt) return exchangeRateCache;
+  try {
+    const response = await fetch('https://open.er-api.com/v6/latest/USD', { signal: AbortSignal.timeout(5000) });
+    if (!response.ok) throw new Error(`Exchange rate provider returned ${response.status}.`);
+    const data = await response.json();
+    if (data.result !== 'success' || data.base_code !== 'USD') throw new Error('Exchange rate provider returned an invalid response.');
+    const rates = { USD: 1 };
+    for (const currency of ['EUR', 'GBP', 'AED']) {
+      const rate = Number(data.rates?.[currency]);
+      if (!Number.isFinite(rate) || rate <= 0) throw new Error(`Exchange rate for ${currency} is unavailable.`);
+      rates[currency] = rate;
+    }
+    exchangeRateCache = { base: 'USD', rates, updatedAt: data.time_last_update_utc || now(), source: 'live' };
+    exchangeRateCacheExpiresAt = Date.now() + EXCHANGE_RATE_TTL_MS;
+  } catch (error) {
+    console.warn(`Live exchange rates unavailable; using ${exchangeRateCache.source} rates: ${error.message}`);
+    exchangeRateCacheExpiresAt = Date.now() + 5 * 60 * 1000;
+  }
+  return exchangeRateCache;
+}
 
 async function seedProducts() {
   const db = await database();
@@ -125,6 +151,10 @@ app.get('/api/health', async (_req, res) => {
     try { await database(); mongoConnected = true; } catch {}
   }
   res.json({ ok: true, mongoConfigured: Boolean(MONGODB_URI), mongoConnected, adminConfigured: configuredAdmin(), smtpConfigured: Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) });
+});
+app.get('/api/exchange-rates', async (_req, res) => {
+  const exchangeRates = await getExchangeRates();
+  res.set('Cache-Control', 'public, max-age=900').json(exchangeRates);
 });
 app.get('/api/catalog', async (req, res) => {
   try {
@@ -257,7 +287,7 @@ async function orderItems(input, currency) {
     return { sku, quantity };
   });
   let subtotal = 0;
-  const exchangeRates = { USD: 1, EUR: 0.92, GBP: 0.79, AED: 3.67 };
+  const exchangeRates = ['EUR', 'GBP', 'AED'].includes(currency) ? (await getExchangeRates()).rates : { USD: 1 };
   const db = await database();
   const items = [];
   for (const { sku, quantity } of validatedItems) {
