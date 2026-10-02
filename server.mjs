@@ -26,11 +26,16 @@ async function database() {
   if (!MONGODB_URI) throw new Error('MONGODB_URI is not configured.');
   if (!databasePromise) {
     const client = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 8000 });
-    databasePromise = client.connect().then(async () => {
+    const pending = client.connect().then(async () => {
       const db = client.db(MONGODB_DB);
       await db.collection('subadmins').createIndex({ email: 1 }, { unique: true });
       return db;
+    }).catch(async (error) => {
+      if (databasePromise === pending) databasePromise = undefined;
+      await client.close().catch(() => {});
+      throw error;
     });
+    databasePromise = pending;
   }
   return databasePromise;
 }
@@ -152,10 +157,12 @@ async function requireCsrf(req, res, next) {
 
 app.get('/api/health', async (_req, res) => {
   let mongoConnected = false;
+  let mongoError = null;
   if (MONGODB_URI) {
     try { await database(); mongoConnected = true; } catch {}
+    if (!mongoConnected) mongoError = 'Database unavailable. Check the MongoDB URI, database credentials, and Atlas network access list.';
   }
-  res.json({ ok: true, mongoConfigured: Boolean(MONGODB_URI), mongoConnected, adminConfigured: configuredAdmin(), smtpConfigured: Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) });
+  res.json({ ok: true, mongoConfigured: Boolean(MONGODB_URI), mongoConnected, mongoError, adminConfigured: configuredAdmin(), smtpConfigured: Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) });
 });
 app.get('/api/exchange-rates', async (_req, res) => {
   const exchangeRates = await getExchangeRates();
@@ -334,7 +341,13 @@ app.post('/api/orders', publicLimiter, async (req, res) => {
     const reference = `BE-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${String(result.insertedId).slice(-5).toUpperCase()}`;
     await db.collection('orders').updateOne({ _id: result.insertedId }, { $set: { reference } });
     res.status(201).json({ reference });
-  } catch (error) { res.status(400).json({ error: error.message }); }
+  } catch (error) {
+    if (error.name === 'MongoServerSelectionError' || /MONGODB_URI is not configured|server selection timed out|MongoNetworkError/i.test(error.message)) {
+      console.error('Order database unavailable:', error.message);
+      return res.status(503).json({ error: 'Order service cannot reach the database right now. Please try again shortly.' });
+    }
+    return res.status(400).json({ error: error.message });
+  }
 });
 app.get('/api/admin/orders', requireAdmin, adminLimiter, async (req, res) => {
   try {
