@@ -258,23 +258,40 @@
   function renderInquiries() {
     const query = $('#inquirySearch').value.trim().toLowerCase();
     const filter = $('#inquiryFilter').value;
-    const visible = inquiries.filter((item) => (filter === 'all' || item.status === filter) && (!query || `${item.name} ${item.email} ${item.subject} ${item.message}`.toLowerCase().includes(query)));
+    const visible = inquiries.filter((item) => (filter === 'all' || item.status === filter) && (!query || `${item.name} ${item.phone || ''} ${item.email} ${item.subject} ${item.message}`.toLowerCase().includes(query)));
     $('#inquiriesEmpty').hidden = visible.length > 0;
-    $('#inquiriesList').innerHTML = visible.map((item) => `<article class="record-card inquiry-card"><div class="record-top"><div><span class="status-badge status-${escapeHtml(item.status)}">${escapeHtml(statusName(item.status))}</span><h2>${escapeHtml(item.subject)}</h2><p class="record-contact">From <strong>${escapeHtml(item.name)}</strong> · <a href="mailto:${escapeHtml(item.email)}">${escapeHtml(item.email)}</a></p></div><time>${escapeHtml(dateLabel(item.created_at))}</time></div><blockquote>${escapeHtml(item.message)}</blockquote>${item.reply ? `<div class="previous-reply"><strong>Your previous reply</strong><p>${escapeHtml(item.reply)}</p></div>` : ''}<form class="reply-form" data-reply-form="${item.id}"><label for="reply-${item.id}">Reply to ${escapeHtml(item.name)}</label><textarea id="reply-${item.id}" name="reply" rows="3" maxlength="5000" placeholder="Write a thoughtful reply…" required>${item.status === 'replied' ? escapeHtml(item.reply || '') : ''}</textarea><div class="reply-footer"><span>Sent to ${escapeHtml(item.email)} from your configured business email.</span><button class="button button-primary" type="submit">Send email reply <span aria-hidden="true">→</span></button></div></form></article>`).join('');
+    $('#inquiriesList').innerHTML = visible.map((item) => {
+      const phoneDigits = String(item.phone || '').replace(/\D/g, '');
+      const contactPhone = item.phone ? ` · <a href="tel:${escapeHtml(item.phone)}">${escapeHtml(item.phone)}</a>` : ' · WhatsApp number not provided';
+      return `<article class="record-card inquiry-card"><div class="record-top"><div><span class="status-badge status-${escapeHtml(item.status)}">${escapeHtml(statusName(item.status))}</span><h2>${escapeHtml(item.subject)}</h2><p class="record-contact">From <strong>${escapeHtml(item.name)}</strong> · <a href="mailto:${escapeHtml(item.email)}">${escapeHtml(item.email)}</a>${contactPhone}</p></div><time>${escapeHtml(dateLabel(item.created_at))}</time></div><blockquote>${escapeHtml(item.message)}</blockquote>${item.reply ? `<div class="previous-reply"><strong>Previous ${escapeHtml(item.reply_channel || 'reply')}</strong><p>${escapeHtml(item.reply)}</p></div>` : ''}<form class="reply-form" data-reply-form="${escapeHtml(item.id)}"><label for="reply-${escapeHtml(item.id)}">WhatsApp reply to ${escapeHtml(item.name)}</label><textarea id="reply-${escapeHtml(item.id)}" name="reply" rows="3" maxlength="5000" placeholder="Write a thoughtful reply…" required>${item.status === 'replied' ? escapeHtml(item.reply || '') : ''}</textarea><div class="reply-footer"><span>${phoneDigits.length >= 7 && phoneDigits.length <= 15 ? 'Open WhatsApp to send. Confirm below after the message is sent.' : 'A WhatsApp number with country code is required to reply.'}</span><div class="record-actions"><button class="button button-outline" type="button" data-open-whatsapp="${escapeHtml(item.id)}" ${phoneDigits.length < 7 || phoneDigits.length > 15 ? 'disabled' : ''}>Open WhatsApp</button><button class="button button-primary" type="submit" ${phoneDigits.length < 7 || phoneDigits.length > 15 ? 'disabled' : ''}>Mark replied</button></div></div></form></article>`;
+    }).join('');
   }
   $('#inquirySearch').addEventListener('input', renderInquiries);
   $('#inquiryFilter').addEventListener('change', renderInquiries);
+  $('#inquiriesList').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-open-whatsapp]');
+    if (!button) return;
+    const inquiry = inquiries.find((item) => String(item.id) === button.dataset.openWhatsapp);
+    const form = button.closest('[data-reply-form]');
+    const reply = $('textarea[name="reply"]', form).value.trim();
+    if (!reply) return flash('Write a reply before opening WhatsApp.', true);
+    const phoneDigits = String(inquiry?.phone || '').replace(/\D/g, '');
+    if (!inquiry || phoneDigits.length < 7 || phoneDigits.length > 15) return flash('This enquiry has no valid WhatsApp number.', true);
+    const message = `Hi ${inquiry.name},\n\n${reply}\n\n- BrannEco`;
+    window.open(`https://wa.me/${phoneDigits}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+  });
   $('#inquiriesList').addEventListener('submit', async (event) => {
     const form = event.target.closest('[data-reply-form]');
     if (!form) return;
     event.preventDefault();
     const button = $('button[type="submit"]', form);
+    const reply = new FormData(form).get('reply');
     button.disabled = true;
     try {
-      await request(`/api/admin/inquiries/${form.dataset.replyForm}/reply`, { method: 'POST', body: JSON.stringify({ reply: new FormData(form).get('reply') }) });
-      flash('Your reply was emailed to the customer.');
+      await request(`/api/admin/inquiries/${form.dataset.replyForm}/reply`, { method: 'POST', body: JSON.stringify({ reply, channel: 'whatsapp' }) });
+      flash('Enquiry marked as replied on WhatsApp.');
       const inquiry = inquiries.find((item) => String(item.id) === form.dataset.replyForm);
-      inquiry.reply = new FormData(form).get('reply'); inquiry.status = 'replied'; inquiry.replied_at = new Date().toISOString();
+      inquiry.reply = reply; inquiry.reply_channel = 'whatsapp'; inquiry.status = 'replied'; inquiry.replied_at = new Date().toISOString();
       renderInquiries(); refreshAll();
     } catch (error) { flash(error.message, true); }
     finally { button.disabled = false; }

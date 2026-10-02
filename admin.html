@@ -62,7 +62,7 @@
 
         <section class="dashboard-content" id="view-overview">
           <div class="page-heading"><div><p class="eyebrow">YOUR BUSINESS AT A GLANCE</p><h1>Good to have you here.</h1><p>Here’s what’s happening across your store today.</p></div><span class="today-pill" id="todayLabel"></span></div>
-          <div id="setupWarning" class="setup-warning" hidden>⚙ &nbsp; Email replies need SMTP configuration. Add SMTP settings to your private <strong>.env</strong> file to reply to customer enquiries.</div>
+          <div id="setupWarning" class="setup-warning" hidden>⚙ &nbsp; Order email replies need SMTP configuration. Add SMTP settings to your private <strong>.env</strong> file to email customers about orders.</div>
           <div class="stats-grid">
             <article class="stat-card"><div class="stat-top"><span class="stat-icon green">▦</span><span class="stat-trend">LIVE CATALOGUE</span></div><p>Products</p><strong id="statProducts">—</strong><small>Across all collections</small></article>
             <article class="stat-card"><div class="stat-top"><span class="stat-icon amber">▤</span><span class="stat-trend">NEEDS ATTENTION</span></div><p>New orders</p><strong id="statOrders">—</strong><small>Ready for your follow-up</small></article>
@@ -73,7 +73,7 @@
             <section class="panel"><div class="panel-heading"><div><h2>Latest orders</h2><p>Recent customer requests</p></div><button class="text-button" data-jump="orders" type="button">All orders →</button></div><div id="recentOrders" class="compact-list"></div></section>
             <section class="panel"><div class="panel-heading"><div><h2>Needs a reply</h2><p>Recent customer messages</p></div><button class="text-button" data-jump="inquiries" type="button">Open inbox →</button></div><div id="recentInquiries" class="compact-list"></div></section>
           </div>
-          <section class="panel quick-panel"><div class="panel-heading"><div><h2>Quick actions</h2><p>Manage your catalogue and customers</p></div></div><div class="quick-actions"><button data-jump="products" type="button"><span>✎</span><strong>Update a product</strong><small>Prices and product photos</small></button><button data-jump="orders" type="button"><span>▤</span><strong>Review new orders</strong><small>See customer details and requests</small></button><button data-jump="inquiries" type="button"><span>✉</span><strong>Answer an enquiry</strong><small>Reply to customers by email</small></button></div></section>
+          <section class="panel quick-panel"><div class="panel-heading"><div><h2>Quick actions</h2><p>Manage your catalogue and customers</p></div></div><div class="quick-actions"><button data-jump="products" type="button"><span>✎</span><strong>Update a product</strong><small>Prices and product photos</small></button><button data-jump="orders" type="button"><span>▤</span><strong>Review new orders</strong><small>See customer details and requests</small></button><button data-jump="inquiries" type="button"><span>✉</span><strong>Answer an enquiry</strong><small>Reply to customers on WhatsApp</small></button></div></section>
         </section>
 
         <section class="dashboard-content" id="view-products" hidden>
@@ -90,8 +90,8 @@
         </section>
 
         <section class="dashboard-content" id="view-inquiries" hidden>
-          <div class="page-heading"><div><p class="eyebrow">CUSTOMER CARE</p><h1>Customer enquiries</h1><p>Read new messages and send a personal email reply.</p></div><span class="count-pill" id="inquiryTotal">0 enquiries</span></div>
-          <div class="toolbar"><label class="search-field"><span>⌕</span><input id="inquirySearch" type="search" placeholder="Search name, email or message…" aria-label="Search enquiries" /></label><label class="filter-select"><span>Inbox</span><select id="inquiryFilter"><option value="all">All messages</option><option value="unread">Awaiting reply</option><option value="replied">Replied</option></select></label></div>
+          <div class="page-heading"><div><p class="eyebrow">CUSTOMER CARE</p><h1>Customer enquiries</h1><p>Read new messages and reply to customers on WhatsApp.</p></div><span class="count-pill" id="inquiryTotal">0 enquiries</span></div>
+          <div class="toolbar"><label class="search-field"><span>⌕</span><input id="inquirySearch" type="search" placeholder="Search name, phone, email or message…" aria-label="Search enquiries" /></label><label class="filter-select"><span>Inbox</span><select id="inquiryFilter"><option value="all">All messages</option><option value="unread">Awaiting reply</option><option value="replied">Replied</option></select></label></div>
           <div id="inquiriesList" class="record-list"></div><p class="empty-state" id="inquiriesEmpty" hidden>No enquiries yet. New website messages will arrive here.</p>
         </section>
         <section class="dashboard-content" id="view-subadmins" hidden>

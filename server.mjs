@@ -375,11 +375,13 @@ app.post('/api/inquiries', publicLimiter, async (req, res) => {
   try {
     const name = String(req.body?.name || '').trim().slice(0, 120);
     const email = String(req.body?.email || '').trim().toLowerCase().slice(0, 254);
+    const phone = String(req.body?.phone || '').trim().slice(0, 32);
+    const phoneDigits = phone.replace(/\D/g, '');
     const subject = String(req.body?.subject || 'Product enquiry').trim().slice(0, 180);
     const message = String(req.body?.message || '').trim().slice(0, 5000);
-    if (name.length < 2 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || message.length < 8) return res.status(400).json({ error: 'Enter your name, a valid email address, and a message of at least 8 characters.' });
+    if (name.length < 2 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || phoneDigits.length < 7 || phoneDigits.length > 15 || message.length < 8) return res.status(400).json({ error: 'Enter your name, a valid email address, a WhatsApp number with country code, and a message of at least 8 characters.' });
     const db = await database();
-    const result = await db.collection('inquiries').insertOne({ name, email, subject, message, status: 'unread', reply: null, created_at: now(), replied_at: null });
+    const result = await db.collection('inquiries').insertOne({ name, email, phone, subject, message, status: 'unread', reply: null, reply_channel: null, created_at: now(), replied_at: null });
     res.status(201).json({ reference: `Q-${String(result.insertedId).slice(-5).toUpperCase()}` });
   } catch (error) { res.status(400).json({ error: error.message }); }
 });
@@ -399,13 +401,13 @@ app.post('/api/admin/inquiries/:id/reply', requireAdmin, requireCsrf, adminLimit
   try {
     const reply = String(req.body?.reply || '').trim().slice(0, 5000);
     if (reply.length < 2) return res.status(400).json({ error: 'Write a reply before sending.' });
+    if (req.body?.channel !== 'whatsapp') return res.status(400).json({ error: 'Replies must be confirmed as sent through WhatsApp.' });
     const db = await database();
     const inquiry = /^[0-9a-fA-F]{24}$/.test(req.params.id) ? await db.collection('inquiries').findOne({ _id: new ObjectId(req.params.id) }) : null;
     if (!inquiry) return res.status(404).json({ error: 'Enquiry not found.' });
-    const transport = mailer();
-    if (!transport) return res.status(503).json({ error: 'Set SMTP_HOST, SMTP_USER, and SMTP_PASS in .env before replying. No email was sent.' });
-    await transport.sendMail({ from: process.env.MAIL_FROM || process.env.SMTP_USER, to: inquiry.email, replyTo: process.env.MAIL_FROM || process.env.SMTP_USER, subject: `Re: ${inquiry.subject}`, text: `Hi ${inquiry.name},\n\n${reply}\n\n- BrannEco` });
-    await db.collection('inquiries').updateOne({ _id: inquiry._id }, { $set: { reply, status: 'replied', replied_at: now() } });
+    const phoneDigits = String(inquiry.phone || '').replace(/\D/g, '');
+    if (phoneDigits.length < 7 || phoneDigits.length > 15) return res.status(400).json({ error: 'This enquiry has no valid WhatsApp number.' });
+    await db.collection('inquiries').updateOne({ _id: inquiry._id }, { $set: { reply, reply_channel: 'whatsapp', status: 'replied', replied_at: now() } });
     res.json({ ok: true });
   } catch (error) { res.status(502).json({ error: error.message }); }
 });
